@@ -33,7 +33,7 @@ details.cat>summary{cursor:pointer;padding:6px 0;display:flex;gap:6px;align-item
 .rh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #b08d4a;padding-bottom:16px;margin-bottom:22px}.rt{font:600 34px 'Cormorant Garamond','Noto Sans TC'}.rs{color:#b08d4a;font-size:14px}
 .rp table{width:100%;border-collapse:collapse}.rp th{background:#1b2236;color:#e6d3a3;font-size:13px;padding:10px 8px;text-align:left}.rp td{font-size:13px;padding:10px 8px;border-bottom:1px solid #e9e2d2;vertical-align:top}.rp tr.z1 td{background:#f3ecdc}.rf{position:absolute;bottom:20px;right:48px;color:#8a8f9c;font-size:12px}
 .sec{font:600 18px 'Cormorant Garamond','Noto Sans TC';margin:20px 0 10px}.br{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 0;border-top:1px solid var(--line);align-items:center}.bb{grid-column:2;grid-row:1/3;display:flex;gap:6px}.pgs{display:flex;gap:6px 14px;flex-wrap:wrap}.pgs label{color:var(--ink);font-size:14px}
-.stp{display:flex;gap:6px;align-items:center}.stp input{width:90px;text-align:center;font-size:18px}.stp button{padding:8px 14px;font-size:18px;line-height:1}.qk{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.qk button{padding:4px 11px;font-size:13px;border-radius:99px}
+.stp{display:flex;gap:6px;align-items:center}.stp input{width:90px;text-align:center;font-size:18px}.stp button{padding:8px 14px;font-size:18px;line-height:1}.qk{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.qk button{padding:4px 11px;font-size:13px;border-radius:99px}.sug{display:block;width:100%;text-align:left;margin-top:4px}
 .info{display:grid;gap:2px;margin:6px 0 2px;font-size:13px;color:var(--mut)}.info b{color:var(--ink);font-weight:500}
 @media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
 </style></head>
@@ -68,10 +68,10 @@ const ymd=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice
 const addDays=(s,n)=>{const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return ymd(d)};
 const diff=s=>Math.round((new Date(s+'T00:00:00')-new Date(ymd(new Date())+'T00:00:00'))/864e5);
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2800)};
-const openModal=h=>{$('#mbox').innerHTML=h;$('#modal').classList.add('on')},closeModal=()=>{$('#modal').classList.remove('on');dirty=0;if(me&&$('#main')&&!(isAdmin&&['fld','set','promo'].includes(tab)))draw()};
+const openModal=h=>{$('#mbox').innerHTML=h;$('#modal').classList.add('on')},closeModal=()=>{$('#modal').classList.remove('on');dirty=0;if(me&&$('#main')&&!((tab==='tpl'||isAdmin&&['fld','set','promo'].includes(tab))))draw()};
 let dirty=0;
 const typing=()=>{const a=document.activeElement;return a&&a.matches&&a.matches('#main input[data-cy],#main textarea,#main input[type=file]')};
-const redraw=()=>{if(!me||!$('#main'))return;if($('#modal').classList.contains('on')){dirty=1;return}if(isAdmin&&['fld','set','promo'].includes(tab)||typing())return;dirty=0;draw()};
+const redraw=()=>{if(!me||!$('#main'))return;if($('#modal').classList.contains('on')){dirty=1;return}if((tab==='tpl'||isAdmin&&['fld','set','promo'].includes(tab))||typing())return;dirty=0;draw()};
 const sk=f=>editing&&(f.type==='items'||f.id==='purchaseDate');
 const ask=(t,v='',ph='')=>new Promise(r=>{openModal(`<h3>${t}</h3><input id="ask" value="${esc(v)}" placeholder="${esc(ph)}" inputmode="${ph?'numeric':'text'}"><div class="btns"><button class="pri" id="ok">確定</button><button data-a="close">取消</button></div>`);$('#ask').focus();const go=()=>{const x=$('#ask').value.trim();closeModal();r(x||null)};$('#ok').onclick=go;$('#ask').onkeydown=e=>e.key==='Enter'&&go()});
 const dl=(b,n)=>{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3)};
@@ -85,20 +85,20 @@ auth.onAuthStateChanged(async u=>{
  if(me.status!=='approved'&&!isAdmin){$('#app').innerHTML=`<div class="auth"><div class="card"><h2>${me.status==='disabled'?'此帳號已被停用':'等待管理員批准中'}</h2><p class="mut">${esc(u.email)}<br>${me.status==='disabled'?'如有疑問請聯絡你的上線':'批准後會自動進入系統'}</p><button data-a="out">登出</button></div></div>`;
   return ref.onSnapshot(x=>{if(x.data()?.status==='approved')location.reload()})}
  await start()});
-function regView(u){$('#app').innerHTML=`<div class="auth"><div class="card" style="text-align:left"><h2>註冊申請</h2><p class="mut">送出後需等待管理員批准。</p><label>會員編號</label><input id="rno"><label>真實姓名</label><input id="rnm"><label>WhatsApp 號碼（含國碼，供管理員提醒用）</label><input id="rph" inputmode="tel" placeholder="例：85291234567"><label>Email</label><input value="${esc(u.email)}" readonly><div class="btns"><button class="pri" id="rgo">送出申請</button><button data-a="out">登出</button></div></div></div>`;
- $('#rgo').onclick=async()=>{const memberNo=$('#rno').value.trim(),realName=$('#rnm').value.trim();if(!memberNo||!realName)return toast('請填寫完整');await db.collection('users').doc(u.uid).set({email:u.email,realName,memberNo,status:'pending',role:'user',phone:($('#rph').value||'').replace(/\D/g,''),at:Date.now()});location.reload()}}
+function regView(u){$('#app').innerHTML=`<div class="auth"><div class="card" style="text-align:left"><h2>註冊申請</h2><p class="mut">送出後需等待管理員批准。</p><label>會員編號</label><input id="rno"><label>真實姓名</label><input id="rnm"><label>WhatsApp 電話號碼（馬來西亞 +60）</label><div class="ch" style="flex-wrap:nowrap"><b>+60</b><input id="rph" inputmode="tel" placeholder="12 345 6789"></div><label>Email</label><input value="${esc(u.email)}" readonly><div class="btns"><button class="pri" id="rgo">送出申請</button><button data-a="out">登出</button></div></div></div>`;
+ $('#rgo').onclick=async()=>{const memberNo=$('#rno').value.trim(),realName=$('#rnm').value.trim();if(!memberNo||!realName)return toast('請填寫完整');const ph=phone60($('#rph').value);if(!ph)return toast('請輸入有效的 WhatsApp 電話號碼');await db.collection('users').doc(u.uid).set({email:u.email,realName,memberNo,status:'pending',role:'user',phone:ph,at:Date.now()});location.reload()}}
 async function start(){
  fields=JSON.parse(JSON.stringify(DEF_FIELDS));cfg={...DEF_CFG};
  await new Promise(res=>{let first=1;db.collection('config').onSnapshot(s=>{s.docs.forEach(d=>{const x=d.data();if(d.id==='fields'&&x.list)fields=x.list;if(d.id==='catalog'&&x.nodes){nodes=x.nodes;idx()}if(d.id==='settings')cfg={...DEF_CFG,...x}});if(first){first=0;res()}else redraw()},e=>{toast('讀取設定失敗：'+e.message);res()})});
  db.collection('promos').onSnapshot(s=>{promos=s.docs.map(d=>({id:d.id,...d.data()}));redraw()});
  
- const tabs=[['home','提醒'],['cust','顧客']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
+ const tabs=[['home','提醒'],['cust','顧客'],['tpl','我的文案']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
  $('#app').innerHTML=`<header><span class="brand">◆ 顧客跟進</span><span>${esc(me.realName)}${isAdmin?' · 管理員':''} <button class="ghost" data-a="out">登出</button></span></header><nav>${tabs.map(t=>`<a data-a="tab" data-id="${t[0]}">${t[1]}</a>`).join('')}</nav><main id="main"></main>`;
  const base=db.collection('customers'),qy=isAdmin?base:base.where('ownerUid','==',me.uid);
  qy.onSnapshot(s=>{custs=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='home'||tab==='cust')redraw();if(!notified){notified=1;notify()}},e=>toast('讀取失敗：'+e.message));
  if(isAdmin)db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='mem'||tab==='home')redraw()});
  draw()}
-const draw=()=>{document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.id===tab));({home:homeView,cust:custView,mem:memView,promo:promoView,fld:fldView,cat:catView,set:setView})[tab]()};
+const draw=()=>{document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.id===tab));({home:homeView,cust:custView,mem:memView,promo:promoView,tpl:tplView,fld:fldView,cat:catView,set:setView})[tab]()};
 
 /* ---------- 跟進計算 ---------- */
 const curMonth=()=>ymd(new Date()).slice(0,7);
@@ -117,7 +117,7 @@ const promoRems=(L=myList())=>promos.filter(p=>p.month===curMonth()).flatMap(p=>
 const when=n=>n<0?`逾期 ${-n} 天`:n===0?'今天':`還有 ${n} 天`,cls=n=>n<0?'red':n<=cfg.ahead?'gold':'';
 function notify(){const n=rems().filter(r=>r.df<=0).length,m=promoRems().length;if((n||m)&&'Notification'in window&&Notification.permission==='granted')new Notification('顧客跟進提醒',{body:`${n} 項需要跟進${m?`、${m} 則促銷可發送`:''}`})}
 const fill=(t,c,b,names)=>t.replaceAll('{稱呼}',c.d.callName||c.d.name||'').replaceAll('{顧客}',c.d.name||'').replaceAll('{產品}',names||(b?b.name:'')).replaceAll('{下線}',c.ownerName||'');
-const msg=(c,kind,b)=>fill(kind==='renew'?cfg.tplRenew:cfg.tpl,c,b);
+const msg=(c,kind,b)=>fill(kind==='renew'?(me.tplRenew||cfg.tplRenew):(me.tpl||cfg.tpl),c,b);
 function link(ch,acc,text){acc=(acc||'').trim();const T=encodeURIComponent(text),u=acc.replace(/^@/,'');
  if(ch==='whatsapp')return'https://wa.me/'+acc.replace(/\D/g,'')+'?text='+T;
  if(/^https?:\/\//i.test(acc))return acc;
@@ -126,6 +126,7 @@ function link(ch,acc,text){acc=(acc||'').trim();const T=encodeURIComponent(text)
  if(ch==='messenger')return'https://m.me/'+u;return'https://ig.me/m/'+u}
 const calURL=r=>'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent((r.kind==='renew'?'會員續約：':'跟進：')+r.c.d.name+(r.b?' '+r.b.name:''))+'&dates='+r.date.replace(/-/g,'')+'/'+addDays(r.date,1).replace(/-/g,'')+'&details='+encodeURIComponent(location.href);
 const chOpts=v=>Object.entries(CH).map(([k,n])=>`<option value="${k}" ${v===k?'selected':''}>${n}</option>`).join('');
+const phone60=v=>{let d=(v||'').replace(/\D/g,'').replace(/^0+/,'');if(d.startsWith('60')&&d.length>=11)d=d.slice(2);return d.length>=8&&d.length<=11?'60'+d:''};
 const wa=(u,t)=>'https://wa.me/'+(u.phone||'').replace(/\D/g,'')+'?text='+encodeURIComponent(t);
 
 /* ---------- 提醒頁 ---------- */
@@ -157,10 +158,12 @@ function infoOf(c){const d=c.d,r=[];if(d.account)r.push(['帳號 / 連結',d.acc
  fields.filter(f=>!SKIPF.has(f.id)&&f.id!=='account'&&f.id!=='channel'&&f.type!=='items'&&f.type!=='member').forEach(f=>{if(d[f.id])r.push([f.label,d[f.id]])});
  const m=d.member;if(m&&m.is)r.push(['會員',(m.no||'')+(m.join?' · 加入 '+m.join:'')]);
  return r.length?`<div class="info">${r.map(([k,v])=>`<div>${esc(k)}：<b>${esc(v)}</b></div>`).join('')}</div>`:''}
-function drawList(){const L=list();$('#list').innerHTML=L.map(c=>{const m=c.d.member,B=buysOf(c).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
- return`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${m&&m.is?'<span class="tag gold">會員</span>':''}</div><div class="mut">稱呼：${esc(c.d.callName)}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>${infoOf(c)}
- <div style="margin-top:6px">${B.map(b=>buyRow(c,b)).join('')||'<div class="mut">尚無購買紀錄</div>'}</div>
- <div class="btns"><button class="pri" data-a="abuy" data-id="${c.id}">＋ 新增購買</button><button data-a="ed" data-id="${c.id}">編輯顧客</button><button class="dg" data-a="rm" data-id="${c.id}">刪除</button></div></div>`}).join('')||'<p class="mut" style="text-align:center">還沒有顧客資料</p>'}
+const cOpen=new Map();
+function drawList(){const L=list(),due=new Set(rems(custs).map(r=>r.c.id));
+ $('#list').innerHTML=L.map(c=>{const m=c.d.member,B=buysOf(c).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')),op=cOpen.has(c.id)?cOpen.get(c.id):due.has(c.id),n=nextOf(c);
+ return`<div class="card"><div class="ch" data-a="ctog" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${m&&m.is?'<span class="tag gold">會員</span>':''}${due.has(c.id)?'<span class="tag red">⏰ 需跟進</span>':''}<span class="sp"></span><span class="mut">${B.length} 筆購買 ${op?'▴':'▾'}</span></div>`
+ +(op?`<div class="mut">稱呼：${esc(c.d.callName)}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>${infoOf(c)}<div style="margin-top:6px">${B.map(b=>buyRow(c,b)).join('')||'<div class="mut">尚無購買紀錄</div>'}</div><div class="btns"><button class="pri" data-a="abuy" data-id="${c.id}">＋ 新增購買</button><button data-a="ed" data-id="${c.id}">編輯顧客</button><button class="dg" data-a="rm" data-id="${c.id}">刪除</button><button data-a="ctog" data-id="${c.id}">收起 ▴</button></div>`
+ :`<div class="mut" style="margin-top:4px">${n?'下次跟進 '+n+' · '+when(diff(n)):'暫無待跟進'}</div>`)+'</div>'}).join('')||'<p class="mut" style="text-align:center">還沒有顧客資料</p>'}
 
 /* ---------- 跟進視窗 ---------- */
 const dayIn=(id,v)=>`<div class="stp"><button type="button" data-a="dstep" data-t="${id}" data-s="-1">−</button><input id="${id}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${v}"><button type="button" data-a="dstep" data-t="${id}" data-s="1">＋</button><span class="mut">天</span></div><div class="qk">${[7,14,30,60,90].map(n=>`<button type="button" data-a="dset" data-t="${id}" data-s="${n}">${n}</button>`).join('')}</div>`;
@@ -216,7 +219,7 @@ function readForm(){const d={},err=[];
  return{d,err}}
 async function saveC(id){const{d,err}=readForm();if(err.length)return toast('請填寫：'+err.join('、'));const btn=$('#csave');btn.disabled=true;
  try{if(id){const c=custs.find(x=>x.id===id);await db.collection('customers').doc(id).update({d:{...c.d,...d}})}
-  else{const date=d.purchaseDate||ymd(new Date()),its=d.items||[];delete d.items;await db.collection('customers').add({ownerUid:me.uid,ownerName:me.realName,ownerNo:me.memberNo,d,buys:its.map(i=>mkBuy(i,date)),at:Date.now()})}
+  else{const date=d.purchaseDate||ymd(new Date()),its=d.items||[];delete d.items;const ref=await db.collection('customers').add({ownerUid:me.uid,ownerName:me.realName,ownerNo:me.memberNo,d,buys:its.map(i=>mkBuy(i,date)),at:Date.now()});cOpen.set(ref.id,true)}
   closeModal();toast('已儲存')}catch(e){toast('儲存失敗：'+e.message);btn.disabled=false}}
 
 /* ---------- 管理員：成員 ---------- */
@@ -241,13 +244,27 @@ function bulk(text){let c=0;for(const line of text.split('\n')){const t=line.tri
 function setView(){$('#main').innerHTML=`<div class="card"><h3>系統設定</h3><label>產品跟進：到期前幾天開始提醒</label><input id="s_ahead" type="number" value="${cfg.ahead}"><label>會員續約週期（天）</label><input id="s_rd" type="number" value="${cfg.renewDays}"><label>續約：到期前幾天開始提醒</label><input id="s_ra" type="number" value="${cfg.renewAhead}">
  <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea><div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
 
+/* ---------- 我的文案 ---------- */
+function tplView(){$('#main').innerHTML=`<div class="card"><h3>我的跟進文案</h3><p class="mut">只套用在你自己的顧客跟進。可用 {稱呼} {顧客} {產品} {下線}。留空儲存＝使用管理員預設文案。</p>
+ <label>產品跟進文案</label><textarea id="t_a" rows="5" placeholder="${esc(cfg.tpl)}">${esc(me.tpl||'')}</textarea>
+ <label>會員續約文案</label><textarea id="t_b" rows="5" placeholder="${esc(cfg.tplRenew)}">${esc(me.tplRenew||'')}</textarea>
+ <div class="btns"><button class="pri" data-a="tsave">儲存</button><button data-a="treset">恢復預設</button></div></div>`}
 /* ---------- 促銷（管理員） ---------- */
 let pf={cats:[],prods:[],img:''};
 const shrink=f=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>{let w=Math.min(900,im.width),q=.75,u;const cv=document.createElement('canvas');for(let i=0;i<4;i++){cv.width=w;cv.height=Math.round(im.height*w/im.width);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);u=cv.toDataURL('image/jpeg',q);if(u.length<450000)break;w*=.75;q-=.1}res(u)};im.onerror=rej;im.src=URL.createObjectURL(f)});
-const pchips=()=>{const b=$('#pchips');if(b)b.innerHTML=pf.prods.map((id,i)=>`<span class="chip">${esc(NM.get(id)?.name||'')}<a data-a="pchipdel" data-id="${i}">✕</a></span>`).join('')};
+const pnamePath=id=>{const a=[];while(id){a.unshift(NM.get(id)?.name||'');id=NM.get(id)?.parent}return a};
+const cntUnder=id=>{const n=NM.get(id);return !n?0:n.p?1:kids(id).reduce((t,k)=>t+cntUnder(k.id),0)};
+const fuzzy=v=>{const q=v.trim().toLowerCase();if(!q)return[];const T=q.split(/\s+/),pq=q.replace(/\s/g,''),sub=(a,p)=>{let i=0;for(const ch of a){if(ch===p[i])i++;if(i===p.length)return 1}return 0};
+ return nodes.filter(n=>n.p).map(n=>{const nm=n.name.toLowerCase(),full=pnamePath(n.id).join(' ').toLowerCase();return{n,sc:nm.includes(q)?0:T.every(t=>full.includes(t))?1:sub(nm,pq)?2:9}}).filter(x=>x.sc<9).sort((a,b)=>a.sc-b.sc||a.n.name.length-b.n.name.length).slice(0,8).map(x=>x.n)};
+const psug=v=>{const b=$('#psug');if(b)b.innerHTML=fuzzy(v).map(n=>`<button type="button" class="sug" data-a="psel" data-id="${n.id}"><b>${esc(n.name)}</b><span class="mut"> ${esc(pnamePath(n.parent).join(' › '))}</span></button>`).join('')};
+function pcasc(){const b=$('#pcasc');if(!b)return;const P=pf.path=pf.path||[];let h='',p=null;
+ for(let i=0;;i++){const k=kids(p);if(!k.length)break;h+=`<select data-pl="${i}"><option value="">${i?'（不選＝'+esc(NM.get(P[i-1])?.name||'')+' 全部）':'選擇大分類…'}</option>${k.map(n=>`<option value="${n.id}" ${P[i]===n.id?'selected':''}>${esc(n.name)}${n.p?'':' ›'}</option>`).join('')}</select>`;const cur=P[i];if(!cur)break;const n=NM.get(cur);if(!n||n.p)break;p=cur}
+ const last=NM.get(P[P.length-1]);
+ b.innerHTML=`<div class="casc">${h||'<span class="mut">請先建立產品目錄</span>'}</div>`+(last?`<div class="addrow"><span>${last.p?'📦':'📁'} <b>${esc(last.name)}</b>（${cntUnder(last.id)} 項產品）</span><button type="button" class="pri sm" data-a="pscope">加入促銷範圍</button></div>`:'')}
+const pchips=()=>{const b=$('#pchips');if(b)b.innerHTML=pf.cats.map((id,i)=>`<span class="chip">📁 ${esc(pnamePath(id).join(' › '))}（全部 ${cntUnder(id)} 項）<a data-a="pcatdel" data-id="${i}">✕</a></span>`).join('')+pf.prods.map((id,i)=>`<span class="chip">📦 ${esc(NM.get(id)?.name||'')}<a data-a="pchipdel" data-id="${i}">✕</a></span>`).join('')||'<span class="mut">尚未選擇</span>';pcasc()};
 function promoView(){$('#main').innerHTML=`<div class="card"><h3>新增當月促銷</h3><label>促銷標題</label><input id="p_t" placeholder="例：11月運動營養優惠"><label>月份</label><input id="p_m" type="month" value="${curMonth()}"><label>促銷圖片（自動壓縮）</label><input id="p_f" type="file" accept="image/*"><div id="p_pv">${pf.img?`<img src="${pf.img}" style="max-width:100%;border-radius:12px">`:''}</div><label>促銷文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="p_x" rows="5">Hi {稱呼}～我是{下線} 😊\n</textarea>
- <label>適用大分類（可複選；都不選且不選產品＝所有顧客）</label><div>${kids(null).map(n=>`<label class="chk"><input type="checkbox" data-pc="${n.id}" ${pf.cats.includes(n.id)?'checked':''}>${esc(n.name)}</label>`).join('')||'<span class="mut">請先建立產品目錄</span>'}</div>
- <label>針對性產品（輸入名稱後選取）</label><input list="plist2" id="p_s" placeholder="輸入產品名稱"><datalist id="plist2">${nodes.filter(n=>n.p).map(n=>`<option value="${esc(n.name)}">`).join('')}</datalist><div id="pchips"></div>
+ <label>① 依分類選擇：先選大分類，再選小分類／產品（不選小分類＝該大分類全部產品），按「加入促銷範圍」</label><div id="pcasc"></div>
+ <label>② 或直接輸入產品名稱（會列出相近的產品）</label><input id="p_s" autocomplete="off" placeholder="輸入產品名稱"><div id="psug"></div><label>已加入的促銷範圍（都不加＝所有顧客）</label><div id="pchips"></div>
  <div class="btns"><button class="pri" data-a="psave">發布促銷</button></div><p class="mut">發布後所有符合的下線「提醒」名單立即更新，；每天早上自動寄出的提醒信也會附上這則促銷通知（免費，由 GitHub 排程寄出）。</p></div><h3 class="sec">已發布</h3>`
  +promos.slice().sort((a,b)=>(b.at||0)-(a.at||0)).map(p=>`<div class="card"><div class="ch"><b>${esc(p.title)}</b><span class="tag gold">${esc(p.month)}</span><span class="tag ${p.emailed?'approved':''}">${p.emailed?'已隨提醒信通知':'等待明早提醒信'}</span></div>${p.img?`<img src="${p.img}" style="max-width:160px;border-radius:10px;margin-top:8px">`:''}<div class="btns"><button class="dg" data-a="pdelx" data-id="${p.id}">刪除</button></div></div>`).join('');pchips()}
 
@@ -286,8 +303,9 @@ document.addEventListener('click',async e=>{
  if(a==='notif'){await Notification.requestPermission();return draw()}
  if(a==='fu')return fu(id,t.dataset.k,t.dataset.b);
  if(a==='abuy')return abuy(id);
+ if(a==='ctog'){const c=custs.find(x=>x.id===id),op=cOpen.has(id)?cOpen.get(id):rems(custs).some(r=>r.c.id===id);cOpen.set(id,!op);return drawList()}
  if(a==='absave'){pushPending();if(!items.length)return toast('請先選擇產品並按「加入」');const c=custs.find(x=>x.id===id),dt=$('#ab_d').value||ymd(new Date());
-  try{await db.collection('customers').doc(id).update({buys:[...buysOf(c),...items.map(i=>mkBuy(i,dt))]});closeModal();toast('已新增購買')}catch(x){toast('失敗：'+x.message)}return}
+  try{await db.collection('customers').doc(id).update({buys:[...buysOf(c),...items.map(i=>mkBuy(i,dt))]});cOpen.set(id,true);closeModal();toast('已新增購買')}catch(x){toast('失敗：'+x.message)}return}
  if(a==='bdel'){if(confirm('刪除這筆購買紀錄？')){const c=custs.find(x=>x.id===id);db.collection('customers').doc(id).update({buys:buysOf(c).filter(b=>b.id!==t.dataset.b)})}return}
  if(a==='pfu')return pfu(id,t.dataset.p);
  if(a==='psave'){const title=$('#p_t').value.trim(),text=$('#p_x').value.trim();if(!title||!text)return toast('請填標題與文案');
@@ -295,6 +313,11 @@ document.addEventListener('click',async e=>{
   toast('已發布，下線的提醒名單已更新');promoView()}catch(x){toast(x.code==='permission-denied'?'權限不足：請用管理員 Gmail 登入，並確認 Firestore 規則已發布':'發布失敗：'+x.message)}return}
  if(a==='pdelx'){if(confirm('刪除此促銷？')){await db.collection('promos').doc(id).delete();promoView()}return}
  if(a==='pchipdel'){pf.prods.splice(+id,1);return pchips()}
+ if(a==='pcatdel'){pf.cats.splice(+id,1);return pchips()}
+ if(a==='psel'){if(!pf.prods.includes(id))pf.prods.push(id);$('#p_s').value='';psug('');return pchips()}
+ if(a==='pscope'){const k=pf.path[pf.path.length-1],n=NM.get(k);if(!n)return;const L=n.p?pf.prods:pf.cats;if(!L.includes(k))L.push(k);pf.path=[];return pchips()}
+ if(a==='tsave'||a==='treset'){const D=firebase.firestore.FieldValue.delete(),A=a==='treset'?'':$('#t_a').value.trim(),B=a==='treset'?'':$('#t_b').value.trim();
+  try{await db.collection('users').doc(me.uid).update({tpl:A||D,tplRenew:B||D});me.tpl=A;me.tplRenew=B;toast(a==='treset'?'已恢復預設':'已儲存');tplView()}catch(x){toast(x.code==='permission-denied'?'權限不足：請更新 Firestore 規則':'失敗：'+x.message)}return}
  if(a==='uph'){const u=users.find(x=>x.id===id),v=await ask('WhatsApp 號碼（含國碼）',u.phone||'');if(v)db.collection('users').doc(id).update({phone:v.replace(/\D/g,'')});return}
  if(a==='new')return cform();if(a==='ed')return cform(id);
  if(a==='rm'){if(confirm('確定刪除這位顧客？'))db.collection('customers').doc(id).delete();return}
@@ -317,13 +340,13 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('toggle',e=>{const id=e.target.dataset?.id;if(id&&e.target.tagName==='DETAILS')e.target.open?open.add(id):open.delete(id)},true);
 document.addEventListener('input',e=>{const t=e.target;
- if(t.id==='p_s'){const n=nodes.find(n=>n.p&&n.name.toLowerCase()===t.value.trim().toLowerCase());if(n&&!pf.prods.includes(n.id)){pf.prods.push(n.id);t.value='';pchips()}}
+ if(t.id==='p_s')return psug(t.value);
  if(t.id==='sq'){q=t.value;drawList()}
  if(t.id==='psearch'){const n=nodes.find(n=>n.p&&n.name.toLowerCase()===t.value.trim().toLowerCase());if(n){path=chain(n.id);itemsUI()}}
  const row=t.closest?.('.frow');if(row&&t.dataset.k){const f=fields[+row.dataset.i],k=t.dataset.k;f[k]=k==='options'?t.value.split(/[,，]/).map(s=>s.trim()).filter(Boolean):t.type==='checkbox'?(t.checked?1:0):t.value}});
 document.addEventListener('change',e=>{const t=e.target;
  if(t.name==='pg')return pgx(t.value);
- if(t.dataset.pc!==undefined){const i=pf.cats.indexOf(t.dataset.pc);i<0?pf.cats.push(t.dataset.pc):pf.cats.splice(i,1);return}
+ if(t.dataset.pl!==undefined){pf.path=(pf.path||[]).slice(0,+t.dataset.pl);if(t.value)pf.path.push(t.value);return pcasc()}
  if(t.id==='p_f'&&t.files[0])return shrink(t.files[0]).then(u=>{pf.img=u;$('#p_pv').innerHTML=`<img src="${u}" style="max-width:100%;border-radius:12px">`}).catch(()=>toast('圖片讀取失敗'));
  if(t.id==='flt'){filterUid=t.value;draw()}
  if(t.dataset.lv!==undefined){path=path.slice(0,+t.dataset.lv);if(t.value)path.push(t.value);itemsUI()}
