@@ -48,8 +48,7 @@ details.cat>summary{cursor:pointer;padding:6px 0;display:flex;gap:6px;align-item
 /* ===== ===== */
 const FB={apiKey:"AIzaSyAj2yhiiVg07faOhPVNYIrnzmXobrm8_xo",authDomain:"follow-2041f.firebaseapp.com",projectId:"follow-2041f",appId:"1:577807614922:web:a067e166e19baae7ae0533"};
 const ADMIN_EMAIL="diabolo.weien@gmail.com";
-const MAIL_URL="https://script.google.com/macros/s/AKfycbwJjze4aAB-y15bVdc4oQ5u3BC89RPxDiaTDKd4hnWchKZD_3vr-y6Ms8SMAVcF57ZGug/exec";   
-const MAIL_KEY="4basic";   /* ========================= */
+/* ========================= */
 firebase.initializeApp(FB);const auth=firebase.auth(),db=firebase.firestore();
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CH={whatsapp:'WhatsApp',email:'Email',telegram:'Telegram',messenger:'Facebook Messenger',instagram:'Instagram'};
@@ -243,20 +242,14 @@ function setView(){$('#main').innerHTML=`<div class="card"><h3>系統設定</h3>
  <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea><div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
 
 /* ---------- 促銷（管理員） ---------- */
-async function mailPromo(p){if(!MAIL_URL)throw new Error('尚未設定 MAIL_URL');const url=location.href.split('#')[0],msgs=[];
- for(const u of users.filter(u=>u.status==='approved'&&u.email)){const m=custs.filter(c=>c.ownerUid===u.id).map(c=>({c,n:pMatch(p,c)})).filter(x=>x.n.length);if(!m.length)continue;
-  const html=`<p>Hi ${esc(u.realName)}，</p><p>本月有新促銷：<b>${esc(p.title)}</b></p><p>你有 <b>${m.length}</b> 位顧客買過相關產品，可以發送這次促銷：${m.slice(0,15).map(x=>esc(x.c.d.name)).join('、')}${m.length>15?' 等':''}</p><p>請登入系統，在「提醒」頁最下方的「本月促銷可發送」查看圖片與文案並發送：<br><a href="${url}">${url}</a></p>`;
-  msgs.push({to:u.email,subject:'🎁 新促銷：'+p.title,html})}
- if(msgs.length)await fetch(MAIL_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:MAIL_KEY,msgs})});
- return msgs.length}
 let pf={cats:[],prods:[],img:''};
 const shrink=f=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>{let w=Math.min(900,im.width),q=.75,u;const cv=document.createElement('canvas');for(let i=0;i<4;i++){cv.width=w;cv.height=Math.round(im.height*w/im.width);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);u=cv.toDataURL('image/jpeg',q);if(u.length<450000)break;w*=.75;q-=.1}res(u)};im.onerror=rej;im.src=URL.createObjectURL(f)});
 const pchips=()=>{const b=$('#pchips');if(b)b.innerHTML=pf.prods.map((id,i)=>`<span class="chip">${esc(NM.get(id)?.name||'')}<a data-a="pchipdel" data-id="${i}">✕</a></span>`).join('')};
 function promoView(){$('#main').innerHTML=`<div class="card"><h3>新增當月促銷</h3><label>促銷標題</label><input id="p_t" placeholder="例：11月運動營養優惠"><label>月份</label><input id="p_m" type="month" value="${curMonth()}"><label>促銷圖片（自動壓縮）</label><input id="p_f" type="file" accept="image/*"><div id="p_pv">${pf.img?`<img src="${pf.img}" style="max-width:100%;border-radius:12px">`:''}</div><label>促銷文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="p_x" rows="5">Hi {稱呼}～我是{下線} 😊\n</textarea>
  <label>適用大分類（可複選；都不選且不選產品＝所有顧客）</label><div>${kids(null).map(n=>`<label class="chk"><input type="checkbox" data-pc="${n.id}" ${pf.cats.includes(n.id)?'checked':''}>${esc(n.name)}</label>`).join('')||'<span class="mut">請先建立產品目錄</span>'}</div>
  <label>針對性產品（輸入名稱後選取）</label><input list="plist2" id="p_s" placeholder="輸入產品名稱"><datalist id="plist2">${nodes.filter(n=>n.p).map(n=>`<option value="${esc(n.name)}">`).join('')}</datalist><div id="pchips"></div>
- <div class="btns"><button class="pri" data-a="psave">發布促銷</button></div><p class="mut">發布後所有符合的下線「提醒」名單立即更新，並同時寄出 Email 通知（透過你的免費 Google Apps Script，每天上限約 100 封）。</p></div><h3 class="sec">已發布</h3>`
- +promos.slice().sort((a,b)=>(b.at||0)-(a.at||0)).map(p=>`<div class="card"><div class="ch"><b>${esc(p.title)}</b><span class="tag gold">${esc(p.month)}</span><span class="tag ${p.emailed?'approved':''}">${p.emailed?'Email 已寄出':'待寄出'}</span></div>${p.img?`<img src="${p.img}" style="max-width:160px;border-radius:10px;margin-top:8px">`:''}<div class="btns"><button class="dg" data-a="pdelx" data-id="${p.id}">刪除</button></div></div>`).join('');pchips()}
+ <div class="btns"><button class="pri" data-a="psave">發布促銷</button></div><p class="mut">發布後所有符合的下線「提醒」名單立即更新，；每天早上自動寄出的提醒信也會附上這則促銷通知（免費，由 GitHub 排程寄出）。</p></div><h3 class="sec">已發布</h3>`
+ +promos.slice().sort((a,b)=>(b.at||0)-(a.at||0)).map(p=>`<div class="card"><div class="ch"><b>${esc(p.title)}</b><span class="tag gold">${esc(p.month)}</span><span class="tag ${p.emailed?'approved':''}">${p.emailed?'已隨提醒信通知':'等待明早提醒信'}</span></div>${p.img?`<img src="${p.img}" style="max-width:160px;border-radius:10px;margin-top:8px">`:''}<div class="btns"><button class="dg" data-a="pdelx" data-id="${p.id}">刪除</button></div></div>`).join('');pchips()}
 
 /* ---------- 匯出 ---------- */
 const who=()=>isAdmin?(filterUid==='all'?'全部下線':(users.find(u=>u.id===filterUid)?.realName||'')):me.realName;
@@ -299,8 +292,7 @@ document.addEventListener('click',async e=>{
  if(a==='pfu')return pfu(id,t.dataset.p);
  if(a==='psave'){const title=$('#p_t').value.trim(),text=$('#p_x').value.trim();if(!title||!text)return toast('請填標題與文案');
   try{const P={title,text,img:pf.img,cats:pf.cats.slice(),prods:pf.prods.slice(),month:$('#p_m').value||curMonth(),at:Date.now(),emailed:false},ref=await db.collection('promos').add(P);P.id=ref.id;pf={cats:[],prods:[],img:''};
-  let n=0,fail='';try{n=await mailPromo(P);await ref.update({emailed:true,mailed:n})}catch(x){fail=x.message}
-  toast(fail?'已發布，名單已更新；Email 未寄出：'+fail:`已發布，名單已更新，已通知 ${n} 位下線`);promoView()}catch(x){toast('發布失敗：'+x.message)}return}
+  toast('已發布，下線的提醒名單已更新');promoView()}catch(x){toast(x.code==='permission-denied'?'權限不足：請用管理員 Gmail 登入，並確認 Firestore 規則已發布':'發布失敗：'+x.message)}return}
  if(a==='pdelx'){if(confirm('刪除此促銷？')){await db.collection('promos').doc(id).delete();promoView()}return}
  if(a==='pchipdel'){pf.prods.splice(+id,1);return pchips()}
  if(a==='uph'){const u=users.find(x=>x.id===id),v=await ask('WhatsApp 號碼（含國碼）',u.phone||'');if(v)db.collection('users').doc(id).update({phone:v.replace(/\D/g,'')});return}
