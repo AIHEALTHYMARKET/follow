@@ -1,0 +1,20 @@
+name: daily-reminder
+on:
+  schedule:
+    - cron: '0 1 * * *'   # UTC 01:00 = 台灣 09:00
+  workflow_dispatch:       # 允許手動測試
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install
+      - run: node scripts/remind.js
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SITE_URL: ${{ secrets.SITE_URL }}
