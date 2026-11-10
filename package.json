@@ -1,0 +1,8 @@
+{
+  "name": "crm-reminder",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "nodemailer": "^6.9.0"
+  }
+}
