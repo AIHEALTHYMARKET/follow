@@ -45,10 +45,11 @@ details.cat>summary{cursor:pointer;padding:6px 0;display:flex;gap:6px;align-item
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-/* ===== 只需要改這兩處 ===== */
+/* ===== ===== */
 const FB={apiKey:"AIzaSyAj2yhiiVg07faOhPVNYIrnzmXobrm8_xo",authDomain:"follow-2041f.firebaseapp.com",projectId:"follow-2041f",appId:"1:577807614922:web:a067e166e19baae7ae0533"};
 const ADMIN_EMAIL="diabolo.weien@gmail.com";
-/* ========================= */
+const MAIL_URL="https://script.google.com/macros/s/AKfycbwJjze4aAB-y15bVdc4oQ5u3BC89RPxDiaTDKd4hnWchKZD_3vr-y6Ms8SMAVcF57ZGug/exec";   
+const MAIL_KEY="4basic";   /* ========================= */
 firebase.initializeApp(FB);const auth=firebase.auth(),db=firebase.firestore();
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const CH={whatsapp:'WhatsApp',email:'Email',telegram:'Telegram',messenger:'Facebook Messenger',instagram:'Instagram'};
@@ -149,7 +150,9 @@ function homeView(){const R=rems(),P=promoRems(),o=R.filter(r=>r.df<0).length,t=
 const nextOf=c=>buysOf(c).map(dueOf).filter(Boolean).sort()[0]||'';
 function custView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="sq" placeholder="搜尋姓名 / 產品" value="${esc(q)}"><button class="pri" data-a="new">＋ 新增顧客</button></div><div class="bar"><button data-a="xls">📊 匯出 Excel</button><button data-a="pdf">📄 匯出 PDF</button><button data-a="jpg">🖼 匯出 JPG</button></div><div id="list"></div>`;drawList()}
 function list(){const k=q.toLowerCase();return myList().filter(c=>!k||(c.d.name||'').toLowerCase().includes(k)||buysOf(c).some(b=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(nextOf(a)||'9').localeCompare(nextOf(b)||'9'))}
-function buyRow(c,b){const d=dueOf(b),df=d?diff(d):0;return`<div class="br"><div><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}</div><div>${b.st?`<span class="tag ${b.st==='unhappy'?'red':b.st==='rebuy'?'approved':'gold'}">${PS[b.st]}</span>`:'<span class="tag">尚未跟進</span>'}${d?` <span class="mut">下次 ${d}</span> <span class="tag ${cls(df)}">${when(df)}</span>`:''}</div><div class="bb">${b.done?'':`<button class="pri sm" data-a="fu" data-id="${c.id}" data-k="follow" data-b="${b.id}">跟進</button>`}<button class="sm dg" data-a="bdel" data-id="${c.id}" data-b="${b.id}">✕</button></div></div>`}
+const histOf=b=>{const lim=addDays(ymd(new Date()),-730);return(b.hist||[]).filter(h=>h.at>=lim).slice().sort((x,y)=>y.at.localeCompare(x.at))};
+const histHTML=b=>{const H=histOf(b);if(!H.length)return'';return`<details style="grid-column:1/-1"><summary class="mut" style="cursor:pointer">跟進紀錄（近兩年 ${H.length} 筆）</summary>${H.map(h=>`<div class="mut" style="padding:2px 0 2px 12px">${esc(h.at)} · <b style="color:var(--ink)">${PS[h.st]||''}</b>${h.st==='rebuy'?`（${h.prev?'上次購買 '+esc(h.prev)+' → ':''}再購買 ${esc(h.buy||'')}）`:h.n?`（${h.n} 天後再跟進）`:''}</div>`).join('')}</details>`};
+function buyRow(c,b){const d=dueOf(b),df=d?diff(d):0;return`<div class="br"><div><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}</div><div>${b.st?`<span class="tag ${b.st==='unhappy'?'red':b.st==='rebuy'?'approved':'gold'}">${PS[b.st]}</span>`:'<span class="tag">尚未跟進</span>'}${d?` <span class="mut">下次 ${d}</span> <span class="tag ${cls(df)}">${when(df)}</span>`:''}</div><div class="bb">${b.done?'':`<button class="pri sm" data-a="fu" data-id="${c.id}" data-k="follow" data-b="${b.id}">跟進</button>`}<button class="sm dg" data-a="bdel" data-id="${c.id}" data-b="${b.id}">✕</button></div>${histHTML(b)}</div>`}
 const SKIPF=new Set(['name','callName','items','purchaseDate','member']);
 function infoOf(c){const d=c.d,r=[];if(d.account)r.push(['帳號 / 連結',d.account]);
  fields.filter(f=>!SKIPF.has(f.id)&&f.id!=='account'&&f.id!=='channel'&&f.type!=='items'&&f.type!=='member').forEach(f=>{if(d[f.id])r.push([f.label,d[f.id]])});
@@ -175,9 +178,10 @@ function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x
   if(kind==='renew'){await db.collection('customers').doc(id).update({'d.member.join':t});closeModal();return toast('已記錄')}
   const v=document.querySelector('[name=pg]:checked')?.value;if(!v)return toast('請先選擇跟進進度');
   const n=dayVal('x_n',v==='noreply'?30:7),B=buysOf(c).map(x=>({...x})),o=B.find(x=>x.id===b.id);
-  o.st=v;o.at=t;o.stop=v==='unhappy'?1:0;o.done=0;
-  if(v==='again'||v==='noreply')o.due=addDays(t,n);
-  if(v==='rebuy'){const dt=$('#x_d').value||t,q=Math.max(1,parseInt($('#x_q').value)||1);o.done=1;o.due='';B.push(mkBuy({id:o.pid,name:o.name,qty:q,cycle:o.cycle},dt,n))}
+  const h={at:t,st:v};o.st=v;o.at=t;o.stop=v==='unhappy'?1:0;o.done=0;
+  if(v==='again'||v==='noreply'){o.due=addDays(t,n);h.n=n}
+  if(v==='rebuy'){const dt=$('#x_d').value||t,q=Math.max(1,parseInt($('#x_q').value)||1);h.prev=o.date;h.buy=dt;h.n=n;o.date=dt;o.qty=q;o.due=addDays(dt,n)}
+  o.hist=[...(o.hist||[]),h];
   try{await db.collection('customers').doc(id).update({buys:B});closeModal();toast('已記錄')}catch(e){toast('儲存失敗：'+e.message)}}}
 function abuy(id){items=[];path=[];openModal(`<h3>新增購買</h3><label>購買日期</label><input type="date" id="ab_d" value="${ymd(new Date())}"><label>購買產品與數量</label><div id="itemsBox"></div><div class="btns"><button class="pri" data-a="absave" data-id="${id}">儲存</button><button data-a="close">取消</button></div>`);itemsUI()}
 function pfu(id,pid){const c=custs.find(x=>x.id===id),p=promos.find(x=>x.id===pid),n=pMatch(p,c);
@@ -239,18 +243,19 @@ function setView(){$('#main').innerHTML=`<div class="card"><h3>系統設定</h3>
  <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea><div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
 
 /* ---------- 促銷（管理員） ---------- */
-async function mailPromo(p){const url=location.href.split('#')[0];let n=0;
+async function mailPromo(p){if(!MAIL_URL)throw new Error('尚未設定 MAIL_URL');const url=location.href.split('#')[0],msgs=[];
  for(const u of users.filter(u=>u.status==='approved'&&u.email)){const m=custs.filter(c=>c.ownerUid===u.id).map(c=>({c,n:pMatch(p,c)})).filter(x=>x.n.length);if(!m.length)continue;
   const html=`<p>Hi ${esc(u.realName)}，</p><p>本月有新促銷：<b>${esc(p.title)}</b></p><p>你有 <b>${m.length}</b> 位顧客買過相關產品，可以發送這次促銷：${m.slice(0,15).map(x=>esc(x.c.d.name)).join('、')}${m.length>15?' 等':''}</p><p>請登入系統，在「提醒」頁最下方的「本月促銷可發送」查看圖片與文案並發送：<br><a href="${url}">${url}</a></p>`;
-  await db.collection('mail').add({to:[u.email],message:{subject:'🎁 新促銷：'+p.title,html},at:Date.now()});n++}
- return n}
+  msgs.push({to:u.email,subject:'🎁 新促銷：'+p.title,html})}
+ if(msgs.length)await fetch(MAIL_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:MAIL_KEY,msgs})});
+ return msgs.length}
 let pf={cats:[],prods:[],img:''};
 const shrink=f=>new Promise((res,rej)=>{const im=new Image();im.onload=()=>{let w=Math.min(900,im.width),q=.75,u;const cv=document.createElement('canvas');for(let i=0;i<4;i++){cv.width=w;cv.height=Math.round(im.height*w/im.width);cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height);u=cv.toDataURL('image/jpeg',q);if(u.length<450000)break;w*=.75;q-=.1}res(u)};im.onerror=rej;im.src=URL.createObjectURL(f)});
 const pchips=()=>{const b=$('#pchips');if(b)b.innerHTML=pf.prods.map((id,i)=>`<span class="chip">${esc(NM.get(id)?.name||'')}<a data-a="pchipdel" data-id="${i}">✕</a></span>`).join('')};
 function promoView(){$('#main').innerHTML=`<div class="card"><h3>新增當月促銷</h3><label>促銷標題</label><input id="p_t" placeholder="例：11月運動營養優惠"><label>月份</label><input id="p_m" type="month" value="${curMonth()}"><label>促銷圖片（自動壓縮）</label><input id="p_f" type="file" accept="image/*"><div id="p_pv">${pf.img?`<img src="${pf.img}" style="max-width:100%;border-radius:12px">`:''}</div><label>促銷文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="p_x" rows="5">Hi {稱呼}～我是{下線} 😊\n</textarea>
  <label>適用大分類（可複選；都不選且不選產品＝所有顧客）</label><div>${kids(null).map(n=>`<label class="chk"><input type="checkbox" data-pc="${n.id}" ${pf.cats.includes(n.id)?'checked':''}>${esc(n.name)}</label>`).join('')||'<span class="mut">請先建立產品目錄</span>'}</div>
  <label>針對性產品（輸入名稱後選取）</label><input list="plist2" id="p_s" placeholder="輸入產品名稱"><datalist id="plist2">${nodes.filter(n=>n.p).map(n=>`<option value="${esc(n.name)}">`).join('')}</datalist><div id="pchips"></div>
- <div class="btns"><button class="pri" data-a="psave">發布促銷</button></div><p class="mut">發布後所有符合的下線「提醒」名單立即更新，並同時寄出 Email 通知（需已啟用 Firebase「Trigger Email」擴充功能，寫入 mail 集合）。</p></div><h3 class="sec">已發布</h3>`
+ <div class="btns"><button class="pri" data-a="psave">發布促銷</button></div><p class="mut">發布後所有符合的下線「提醒」名單立即更新，並同時寄出 Email 通知（透過你的免費 Google Apps Script，每天上限約 100 封）。</p></div><h3 class="sec">已發布</h3>`
  +promos.slice().sort((a,b)=>(b.at||0)-(a.at||0)).map(p=>`<div class="card"><div class="ch"><b>${esc(p.title)}</b><span class="tag gold">${esc(p.month)}</span><span class="tag ${p.emailed?'approved':''}">${p.emailed?'Email 已寄出':'待寄出'}</span></div>${p.img?`<img src="${p.img}" style="max-width:160px;border-radius:10px;margin-top:8px">`:''}<div class="btns"><button class="dg" data-a="pdelx" data-id="${p.id}">刪除</button></div></div>`).join('');pchips()}
 
 /* ---------- 匯出 ---------- */
