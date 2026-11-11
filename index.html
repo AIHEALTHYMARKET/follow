@@ -19,7 +19,7 @@ input[type=checkbox]{width:auto}label{display:block;font-size:13px;color:var(--m
 .btns,.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.bar{margin:0 0 12px}.bar input,.bar select{flex:1;min-width:140px;width:auto}
 .ch{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mut{color:var(--mut);font-size:13px}
 .tag{font-size:12px;padding:2px 10px;border-radius:99px;background:#eee;color:#555}.tag.red,.tag.disabled{background:#fbe5e2;color:var(--red)}.tag.gold,.tag.pending{background:#f7edd2;color:#8a6a22}.tag.approved{background:#dff3ea;color:var(--grn)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}.st{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;font-size:12px;color:var(--mut)}.st b{display:block;font-size:26px;color:var(--ink)}b.red{color:var(--red)}b.gold{color:var(--gold)}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:14px}.st{cursor:pointer;transition:.15s}.st.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold2) inset}.st{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;text-align:center;font-size:12px;color:var(--mut)}.st b{display:block;font-size:26px;color:var(--ink)}b.red{color:var(--red)}b.gold{color:var(--gold)}
 .chip{display:inline-flex;gap:6px;background:#f7edd2;border-radius:99px;padding:3px 12px;margin:4px 4px 0 0;font-size:13px}.chip a{cursor:pointer;color:var(--red)}
 .casc{display:grid;gap:8px}.addrow{display:flex;gap:8px;align-items:center;margin-top:8px}.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .frow{border-bottom:1px solid var(--line);padding:12px 0;display:grid;gap:6px}.fl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
@@ -37,7 +37,7 @@ details.cat>summary{cursor:pointer;padding:6px 0;display:flex;gap:6px;align-item
 .info{display:grid;gap:2px;margin:6px 0 2px;font-size:13px;color:var(--mut)}.info b{color:var(--ink);font-weight:500}
 html[data-theme=dark]{color-scheme:dark;--card:#1a1f2e;--hd:#0b0e15;--onbg:#c9a45c;--onfg:#11141d;--bg:#11141d;--ink:#ebe7dc;--mut:#9aa2b5;--line:#2b3347;--red:#e0675d;--grn:#4fbf95;--gold:#d2ae68}
 html[data-theme=dark] .tag{background:#2a3044;color:#c9cedb}html[data-theme=dark] .tag.red,html[data-theme=dark] .tag.disabled{background:#3d2423;color:#f08a80}html[data-theme=dark] .tag.gold,html[data-theme=dark] .tag.pending{background:#3a3322;color:#e6c77a}html[data-theme=dark] .tag.approved{background:#1f3a31;color:#6fd3a9}html[data-theme=dark] .chip{background:#3a3322}
-@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+@media(max-width:600px){.stats{grid-template-columns:repeat(3,1fr);gap:8px}.st{padding:10px 4px}.g2{grid-template-columns:1fr}}
 </style>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}catch(e){}</script></head>
 <body><div id="app"></div><div id="modal"><div class="mbox" id="mbox"></div></div><div id="toast"></div>
@@ -136,7 +136,7 @@ const fieldSec=(F,BM)=>{let h='';const mo=+ymd(new Date()).slice(5,7);
  return h||F.length?`<h3 class="sec">🎂 生日 / 日期提醒${F.length?`（今日 ${F.length}）`:''}</h3>`+h+F.map(fCard).join(''):''};
 function ffu(id,fid){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===fid),o=occOf(f,c.d[f.id]);
  openModal(`<h3>${esc(f.label)} · ${esc(c.d.name)}</h3><label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>文案（可直接修改）</label><textarea id="fmsg" rows="6">${esc(fmsg(c,f))}</textarea><div class="btns"><button class="pri" id="fgo">複製文案並前往平台</button><button id="pdone">已發送</button></div>`);
- $('#fgo').onclick=goLink;$('#pdone').onclick=async()=>{await db.collection('customers').doc(id).update({['fSent.'+fid]:o});closeModal();toast('已記錄')}}
+ $('#fgo').onclick=goLink;$('#pdone').onclick=async()=>{await db.collection('customers').doc(id).update({['fSent.'+fid]:o,['fAt.'+fid]:ymd(new Date())});closeModal();toast('已記錄')}}
 const msg=(c,kind,b)=>fill(kind==='renew'?(me.tplRenew||cfg.tplRenew):(me.tpl||cfg.tpl),c,b);
 function link(ch,acc,text){acc=(acc||'').trim();const T=encodeURIComponent(text),u=acc.replace(/^@/,'');
  if(ch==='whatsapp')return'https://wa.me/'+acc.replace(/\D/g,'')+'?text='+T;
@@ -160,11 +160,23 @@ function monCard(){const rows=users.filter(u=>u.status==='approved'&&u.email!==A
   t=R.length?`Hi ${u.realName}，你目前有 ${R.length} 項顧客跟進已逾期（最久 ${mx} 天）${last?'，上次跟進是 '+last:'，系統內還沒有跟進紀錄'}，請盡快進入系統處理 😊\n${location.href.split('#')[0]}`:`Hi ${u.realName}，記得定期進入系統跟進顧客喔 😊\n${location.href.split('#')[0]}`;
   return{u,R,mx,last,t}}).sort((a,b)=>b.mx-a.mx);
  return`<div class="card"><details ${rows.some(r=>r.mx>0)?'open':''}><summary><b>👥 下線跟進狀況</b></summary>${rows.map(r=>`<div class="frow"><div class="ch"><b>${esc(r.u.realName)}</b><span class="tag ${r.R.length?'red':'approved'}">逾期 ${r.R.length} 項${r.mx?'（最久 '+r.mx+' 天）':''}</span></div><div class="mut">上次跟進：${r.last||'尚無紀錄'}${r.u.phone?'':' · 未設電話（會開啟 WhatsApp 後自選聯絡人）'}</div><div class="btns"><a class="btn" target="_blank" href="${wa(r.u,r.t)}">💬 WhatsApp 提醒</a></div></div>`).join('')||'<p class="mut">尚無下線</p>'}</details></div>`}
-function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),o=R.filter(r=>r.df<0).length,t=R.filter(r=>r.df===0).length;
- $('#main').innerHTML=(isAdmin?`<div class="bar">${fsel()}</div>`+(filterUid==='all'?monCard():''):'')+`<div class="stats"><div class="st"><b class="red">${o}</b>逾期</div><div class="st"><b class="gold">${t}</b>今天</div><div class="st"><b>${R.length-o-t}</b>即將到期</div><div class="st"><b>${myList().length}</b>顧客總數</div></div>`
+let homeSel='';
+const doneToday=(L=myList())=>{const t=ymd(new Date());return L.flatMap(c=>[...buysOf(c).filter(b=>b.at===t).map(b=>({c,t:`${b.name} · ${PS[b.st]||''}`})),...fields.filter(f=>f.remOn&&(c.fAt||{})[f.id]===t).map(f=>({c,t:f.label+' 已發送'}))])};
+function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),A=[...R,...F].sort((a,b)=>a.df-b.df),D=doneToday(L),
+ todo=A.filter(x=>x.df<=0),over=A.filter(x=>x.df<0),tod=A.filter(x=>x.df===0),soon=A.filter(x=>x.df>0),
+ box=(k,n,l,c)=>`<div class="st ${homeSel===k?'on':''}" data-a="hsel" data-k="${k}"><b class="${c||''}">${n}</b>${l}</div>`,
+ card=x=>x.f?fCard(x):remCard(x),
+ empty=m=>`<div class="card" style="text-align:center;color:var(--mut)">${m}</div>`,
+ doneCard=x=>`<div class="card" style="opacity:.75"><div class="ch"><span class="tag approved">✓ 已完成</span><b>${esc(x.c.d.name)}</b><span class="mut">${esc(x.t)}</span></div></div>`,
+ custRow=c=>{const n=nextOf(c);return`<div class="card"><div class="ch" data-a="gocust" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}<span class="sp"></span><span class="mut">${n?'下次跟進 '+n:'暫無待跟進'} ›</span></div></div>`},
+ T={all:['今日應跟進',todo.map(card).join('')+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',todo.map(card).join(''),'今天的跟進都完成了 🎉'],over:['已逾期',over.map(card).join(''),'沒有逾期項目 👍'],tod:['今天需跟進',tod.map(card).join(''),'今天沒有項目'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
+ sel=T[homeSel];
+ $('#main').innerHTML=(isAdmin?`<div class="bar">${fsel()}</div>`:'')+`<div class="stats">${box('all',todo.length+D.length,'今日應跟進')}${box('todo',todo.length,'未完成','red')}${box('over',over.length,'逾期','red')}${box('tod',tod.length,'今天','gold')}${box('soon',soon.length,'即將到期')}${box('cust',L.length,'顧客總數')}</div>`
+ +(isAdmin&&filterUid==='all'?monCard():'')
  +(('Notification' in window&&Notification.permission==='default')?`<div class="card">🔔 <button class="pri" data-a="notif">開啟瀏覽器提醒</button></div>`:'')
- +(R.length?R.map(remCard).join(''):'<div class="card" style="text-align:center;color:var(--mut)">目前沒有需要跟進的顧客 ✨</div>')
- +fieldSec(F,BM)+(P.length?`<h3 class="sec">🎁 本月促銷可發送（${P.length}）</h3>`+P.map(prCard).join(''):'')}
+ +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:A.filter(x=>({todo:x.df<=0,over:x.df<0,tod:x.df===0,soon:x.df>0})[homeSel]).length}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2]))+fieldSec([],BM)
+  :(R.length?R.map(remCard).join(''):empty('目前沒有需要跟進的顧客 ✨'))+fieldSec(F,BM))
+ +(P.length?`<h3 class="sec">🎁 本月促銷可發送（${P.length}）</h3>`+P.map(prCard).join(''):'')}
 
 /* ---------- 顧客頁（逐筆購買） ---------- */
 const nextOf=c=>buysOf(c).map(dueOf).filter(Boolean).sort()[0]||'';
@@ -321,6 +333,8 @@ document.addEventListener('click',async e=>{
  if(a==='login')return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(x=>toast(x.message));
  if(a==='out'){await auth.signOut();return location.reload()}
  if(a==='tab'){tab=id;return draw()}
+ if(a==='hsel'){homeSel=homeSel===t.dataset.k?'':t.dataset.k;return draw()}
+ if(a==='gocust'){cOpen.set(id,true);tab='cust';return draw()}
  if(a==='theme'){const n=curTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('theme',n)}catch(e){}t.textContent=n==='dark'?'☀':'🌙';return}
  if(a==='close')return closeModal();
  if(a==='notif'){await Notification.requestPermission();return draw()}
@@ -339,7 +353,7 @@ document.addEventListener('click',async e=>{
  if(a==='pcatdel'){pf.cats.splice(+id,1);return pchips()}
  if(a==='psel'){if(!pf.prods.includes(id))pf.prods.push(id);$('#p_s').value='';psug('');return pchips()}
  if(a==='pscope'){const k=pf.path[pf.path.length-1],n=NM.get(k);if(!n)return;const L=n.p?pf.prods:pf.cats;if(!L.includes(k))L.push(k);pf.path=[];return pchips()}
- if(a==='fquick'||a==='fedit'||a==='fskip'){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===t.dataset.f);if(!c||!f)return;const o=occOf(f,c.d[f.id]),mark=()=>db.collection('customers').doc(id).update({['fSent.'+f.id]:o});
+ if(a==='fquick'||a==='fedit'||a==='fskip'){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===t.dataset.f);if(!c||!f)return;const o=occOf(f,c.d[f.id]),mark=()=>db.collection('customers').doc(id).update({['fSent.'+f.id]:o,['fAt.'+f.id]:ymd(new Date())});
   if(a==='fskip'){mark();return}if(a==='fedit')return ffu(id,f.id);
   const txt=fmsg(c,f);navigator.clipboard?.writeText(txt);window.open(link(c.d.channel,c.d.account,txt),'_blank');mark();return}
  if(a==='tsave'||a==='treset'){const D=firebase.firestore.FieldValue.delete(),R=a==='treset',g=id=>R?'':($('#'+id)?.value||'').trim(),A=g('t_a'),B=g('t_b'),U={tpl:A||D,tplRenew:B||D};me.ftpl=me.ftpl||{};
