@@ -263,7 +263,7 @@ function bulk(text){let c=0;for(const line of text.split('\n')){const t=line.tri
 
 /* ---------- 管理員：系統設定 ---------- */
 function setView(){$('#main').innerHTML=`<div class="card"><h3>系統設定</h3><label>產品跟進：到期前幾天開始提醒</label><input id="s_ahead" type="number" value="${cfg.ahead}"><label>會員續約週期（天）</label><input id="s_rd" type="number" value="${cfg.renewDays}"><label>續約：到期前幾天開始提醒</label><input id="s_ra" type="number" value="${cfg.renewAhead}">
- <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea><div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
+ <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea>${fields.filter(f=>f.on&&f.tplOn).map(f=>`<label>${esc(f.label)}文案（預設）</label><textarea id="s_f_${f.id}" rows="4">${esc(f.tpl||'')}</textarea>`).join('')}<div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
 
 /* ---------- 我的文案 ---------- */
 function tplView(){const TF=fields.filter(f=>f.on&&f.tplOn);$('#main').innerHTML=`<div class="card"><h3>我的跟進文案</h3><p class="mut">只套用在你自己的顧客跟進。可用 {稱呼} {顧客} {產品} {下線}（欄位文案另可用 {欄位} {值}）。留空儲存＝使用管理員預設文案。</p>
@@ -363,7 +363,7 @@ document.addEventListener('click',async e=>{
  if(a==='ren'){const n=NM.get(id),v=await ask('新名稱',n.name);if(v){n.name=v;saveCat();catView()}return}
  if(a==='del'){if(confirm('刪除後其下所有項目也會一併刪除，確定？')){rmNode(id);saveCat();catView()}return}
  if(a==='bulk'){const c=bulk($('#bulk').value);saveCat();toast(`已新增 ${c} 個項目`);return catView()}
- if(a==='sset'){cfg={ahead:+$('#s_ahead').value||3,renewDays:+$('#s_rd').value||365,renewAhead:+$('#s_ra').value||30,tpl:$('#s_tpl').value,tplRenew:$('#s_tr').value};db.collection('config').doc('settings').set(cfg).then(()=>toast('已儲存'))}
+ if(a==='sset'){cfg={ahead:+$('#s_ahead').value||3,renewDays:+$('#s_rd').value||365,renewAhead:+$('#s_ra').value||30,tpl:$('#s_tpl').value,tplRenew:$('#s_tr').value};fields.filter(f=>f.tplOn).forEach(f=>{const e=$('#s_f_'+f.id);if(e)f.tpl=e.value});Promise.all([db.collection('config').doc('settings').set(cfg),db.collection('config').doc('fields').set({list:fields,bday:1})]).then(()=>toast('已儲存')).catch(x=>toast('失敗：'+x.message))}
 });
 document.addEventListener('toggle',e=>{const id=e.target.dataset?.id;if(id&&e.target.tagName==='DETAILS')e.target.open?open.add(id):open.delete(id)},true);
 document.addEventListener('input',e=>{const t=e.target;
