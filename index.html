@@ -161,11 +161,11 @@ function monCard(){const rows=users.filter(u=>u.status==='approved'&&u.email!==A
   return{u,R,mx,last,t}}).sort((a,b)=>b.mx-a.mx);
  return`<div class="card"><details ${rows.some(r=>r.mx>0)?'open':''}><summary><b>👥 下線跟進狀況</b></summary>${rows.map(r=>`<div class="frow"><div class="ch"><b>${esc(r.u.realName)}</b><span class="tag ${r.R.length?'red':'approved'}">逾期 ${r.R.length} 項${r.mx?'（最久 '+r.mx+' 天）':''}</span></div><div class="mut">上次跟進：${r.last||'尚無紀錄'}${r.u.phone?'':' · 未設電話（會開啟 WhatsApp 後自選聯絡人）'}</div><div class="btns"><a class="btn" target="_blank" href="${wa(r.u,r.t)}">💬 WhatsApp 提醒</a></div></div>`).join('')||'<p class="mut">尚無下線</p>'}</details></div>`}
 let homeSel='';
-const doneToday=(L=myList())=>{const t=ymd(new Date());return L.flatMap(c=>[...buysOf(c).filter(b=>b.at===t).map(b=>({c,t:`${b.name} · ${PS[b.st]||''}`})),...fields.filter(f=>f.remOn&&(c.fAt||{})[f.id]===t).map(f=>({c,t:f.label+' 已發送'}))])};
-function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),A=[...R,...F].sort((a,b)=>a.df-b.df),D=doneToday(L),
+const doneToday=(L=myList())=>{const t=ymd(new Date());return L.flatMap(c=>[...buysOf(c).filter(b=>b.at===t).map(b=>({c,t:`${b.name} · ${PS[b.st]||''}`})),...fields.filter(f=>f.remOn&&(c.fAt||{})[f.id]===t).map(f=>({c,t:f.label+' 已發送'}))]).concat(promos.filter(p=>p.month===curMonth()).flatMap(p=>L.filter(c=>(c.promoSent||{})[p.id]===t).map(c=>({c,t:'🎁 '+p.title+' 已發送'}))))};
+function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),A=[...R,...F,...P.map(x=>({...x,df:0,promo:1}))].sort((a,b)=>a.df-b.df),D=doneToday(L),
  todo=A.filter(x=>x.df<=0),over=A.filter(x=>x.df<0),tod=A.filter(x=>x.df===0),soon=A.filter(x=>x.df>0),
  box=(k,n,l,c)=>`<div class="st ${homeSel===k?'on':''}" data-a="hsel" data-k="${k}"><b class="${c||''}">${n}</b>${l}</div>`,
- card=x=>x.f?fCard(x):remCard(x),
+ card=x=>x.promo?prCard(x):x.f?fCard(x):remCard(x),
  empty=m=>`<div class="card" style="text-align:center;color:var(--mut)">${m}</div>`,
  doneCard=x=>`<div class="card" style="opacity:.75"><div class="ch"><span class="tag approved">✓ 已完成</span><b>${esc(x.c.d.name)}</b><span class="mut">${esc(x.t)}</span></div></div>`,
  custRow=c=>{const n=nextOf(c);return`<div class="card"><div class="ch" data-a="gocust" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}<span class="sp"></span><span class="mut">${n?'下次跟進 '+n:'暫無待跟進'} ›</span></div></div>`},
@@ -176,7 +176,7 @@ function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myLi
  +(('Notification' in window&&Notification.permission==='default')?`<div class="card">🔔 <button class="pri" data-a="notif">開啟瀏覽器提醒</button></div>`:'')
  +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:A.filter(x=>({todo:x.df<=0,over:x.df<0,tod:x.df===0,soon:x.df>0})[homeSel]).length}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2]))+fieldSec([],BM)
   :(R.length?R.map(remCard).join(''):empty('目前沒有需要跟進的顧客 ✨'))+fieldSec(F,BM))
- +(P.length?`<h3 class="sec">🎁 本月促銷可發送（${P.length}）</h3>`+P.map(prCard).join(''):'')}
+ +(P.length&&(!sel||!['all','todo','tod'].includes(homeSel))?`<h3 class="sec">🎁 本月促銷可發送（${P.length}）</h3>`+P.map(prCard).join(''):'')}
 
 /* ---------- 顧客頁（逐筆購買） ---------- */
 const nextOf=c=>buysOf(c).map(dueOf).filter(Boolean).sort()[0]||'';
