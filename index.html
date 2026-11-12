@@ -166,7 +166,7 @@ function monCard(){const rows=users.filter(u=>u.status==='approved'&&u.email!==A
   return{u,R,mx,last,t}}).sort((a,b)=>b.mx-a.mx);
  return`<div class="card"><details ${rows.some(r=>r.mx>0)?'open':''}><summary><b>👥 下線跟進狀況</b></summary>${rows.map(r=>`<div class="frow"><div class="ch"><b>${esc(r.u.realName)}</b><span class="tag ${r.R.length?'red':'approved'}">逾期 ${r.R.length} 項${r.mx?'（最久 '+r.mx+' 天）':''}</span></div><div class="mut">上次跟進：${r.last||'尚無紀錄'}${r.u.phone?'':' · 未設電話（會開啟 WhatsApp 後自選聯絡人）'}</div><div class="btns"><a class="btn" target="_blank" href="${wa(r.u,r.t)}">💬 WhatsApp 提醒</a></div></div>`).join('')||'<p class="mut">尚無下線</p>'}</details></div>`}
 /* ---------- Opp ---------- */
-let opps=[],oq='',oppF='active',progM='',exSrc='cust',stkQ='';
+let opps=[],oq='',oppF='active',progM='',exSrc='cust',stkQ='',stkSel='',progSel='',stockMode=0;
 const OST={list:'列名單',invite:'邀約',demo:'展示計劃',follow:'跟進',joined:'已加入',closed:'已結束'};
 const myOpps=()=>opps.filter(o=>filterUid==='all'||o.ownerUid===filterUid);
 const oActive=o=>['list','invite','demo','follow'].includes(o.stage);
@@ -205,19 +205,29 @@ function oppView(){const L=myOpps(),F={active:oActive,joined:o=>o.stage==='joine
 const stockOf=c=>c.stock||[],skey=e=>e.pid||e.name,lim3=()=>addDays(ymd(new Date()),-1095);
 function bal(c){const m=new Map();stockOf(c).forEach(e=>{const k=skey(e),r=m.get(k)||{k,name:e.name,qty:0};r.qty+=e.type==='out'?-e.qty:e.qty;m.set(k,r)});return[...m.values()].filter(r=>r.qty!==0)}
 const stockHTML=c=>{const B=bal(c);return`<div class="mut" style="margin-top:8px">📦 寄存：${B.length?B.map(r=>`${esc(r.name)} ×${r.qty}`).join('、'):'無'}</div><div class="btns"><button class="sm" data-a="sin" data-id="${c.id}">＋ 寄存</button>${B.some(r=>r.qty>0)?`<button class="sm" data-a="sout" data-id="${c.id}">交貨</button>`:''}<button class="sm" data-a="shist" data-id="${c.id}">購買 / 寄存紀錄</button></div>`};
-function sin(cid){items=[];path=[];const Lc=myList().slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant'));
+function sin(cid){items=[];path=[];stockMode=1;const Lc=myList().slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant'));
  openModal(`<h3>新增寄存</h3>${cid?`<div class="mut">${esc(custs.find(x=>x.id===cid).d.name)}</div>`:`<label>顧客</label><select id="s_c">${Lc.map(c=>`<option value="${c.id}">${esc(c.d.name)}</option>`).join('')}</select>`}<label>日期</label><input type="date" id="s_d" value="${ymd(new Date())}"><label>寄存產品與數量</label><div id="itemsBox"></div><label>備註</label><input id="s_n"><div class="btns"><button class="pri" data-a="sinsave" data-id="${cid}">儲存</button><button data-a="close">取消</button></div>`);itemsUI()}
 function sout(cid,key){const c=custs.find(x=>x.id===cid),B=bal(c).filter(r=>r.qty>0),r=B.find(x=>x.k===key)||B[0];if(!r)return toast('這位顧客沒有寄存');
  openModal(`<h3>交貨給 ${esc(c.d.name)}</h3><label>產品</label><select id="k_k">${B.map(x=>`<option value="${esc(x.k)}" ${x.k===r.k?'selected':''}>${esc(x.name)}（現存 ${x.qty}）</option>`).join('')}</select><label>交貨數量</label><input id="k_q" type="text" inputmode="numeric" value="${r.qty}"><label>日期</label><input type="date" id="k_d" value="${ymd(new Date())}"><label>備註</label><input id="k_n"><div class="btns"><button class="pri" data-a="soutsave" data-id="${cid}">確認交貨</button><button data-a="close">取消</button></div>`)}
-function shist(cid){const c=custs.find(x=>x.id===cid),lim=lim3(),R=[...buysOf(c).filter(b=>(b.date||'')>=lim).map(b=>({d:b.date,t:`🛒 購買 ${b.name} ×${b.qty}`})),...stockOf(c).filter(e=>e.date>=lim).map(e=>({d:e.date,t:`${e.type==='out'?'📤 交貨':'📥 寄存'} ${e.name} ×${e.qty}${e.note?' · '+e.note:''}`,e}))].sort((a,b)=>(b.d||'').localeCompare(a.d||''));
- openModal(`<h3>${esc(c.d.name)} · 近三年紀錄</h3>${R.map(r=>`<div class="mut" style="padding:4px 0;border-bottom:1px solid var(--line)">${esc(r.d)} · <span style="color:var(--ink)">${esc(r.t)}</span>${r.e?` <a data-a="sdel" data-id="${cid}" data-e="${r.e.id}" style="cursor:pointer">✕</a>`:''}</div>`).join('')||'<p class="mut">沒有紀錄</p>'}<div class="btns"><button data-a="close">關閉</button></div>`)}
-function stockList(){const b=$('#slist');if(!b)return;const L=myList(),k=stkQ.toLowerCase(),M=new Map();
+const evOf=c=>[...buysOf(c).map(b=>({d:b.date||'',t:'buy',k:b.pid||b.name,name:b.name,q:b.qty})),...stockOf(c).map(e=>({d:e.date,t:e.type,k:skey(e),name:e.name,q:e.qty,note:e.note,id:e.id,at:e.at}))].filter(x=>x.d).sort((a,b)=>a.d.localeCompare(b.d)||(a.at||0)-(b.at||0)||(a.t==='buy'?-1:1));
+function tlines(c,key){const run={};return evOf(c).map(x=>{if(x.t!=='buy')run[x.k]=(run[x.k]||0)+(x.t==='out'?-x.q:x.q);return{...x,bal:run[x.k]||0}}).filter(x=>x.d>=lim3()&&(!key||x.k===key)).reverse()}
+const tlHTML=(L,cid)=>L.map(x=>`<div class="mut" style="padding:3px 0 3px 8px;border-bottom:1px dashed var(--line)">${esc(x.d)} · <span style="color:var(--ink)">${x.t==='buy'?'🛒 購買':x.t==='in'?'📥 寄存':'📤 交貨'} ${esc(x.name)} ×${x.q}</span>${x.t!=='buy'?` · 存餘 ${x.bal}`:''}${x.note&&x.note!=='購買寄存'?' · '+esc(x.note):''}${cid&&x.id?` <a data-a="sdel" data-id="${cid}" data-e="${x.id}" style="cursor:pointer">✕</a>`:''}</div>`).join('')||'<div class="mut">沒有紀錄</div>';
+function shist(cid){const c=custs.find(x=>x.id===cid);openModal(`<h3>${esc(c.d.name)} · 近三年 購買 / 寄存 / 交貨過程</h3>${tlHTML(tlines(c),cid)}<div class="btns"><button data-a="close">關閉</button></div>`)}
+function stockList(){const b=$('#slist');if(!b)return;const L=myList(),k=stkQ.toLowerCase(),mo=ymd(new Date()).slice(0,7),M=new Map();
  L.forEach(c=>bal(c).forEach(r=>{const x=M.get(r.k)||{k:r.k,name:r.name,tot:0,by:[]};x.tot+=r.qty;x.by.push({c,qty:r.qty});M.set(r.k,x)}));
- const P=[...M.values()].filter(x=>x.tot!==0&&(!k||x.name.toLowerCase().includes(k)||x.by.some(y=>(y.c.d.name||'').toLowerCase().includes(k)))).sort((a,c)=>c.tot-a.tot),lim=lim3(),
- led=L.flatMap(c=>stockOf(c).filter(e=>e.date>=lim&&(!k||e.name.toLowerCase().includes(k)||(c.d.name||'').toLowerCase().includes(k))).map(e=>({c,e}))).sort((a,c)=>c.e.date.localeCompare(a.e.date)||(c.e.at||0)-(a.e.at||0));
- b.innerHTML=`<div class="stats" style="grid-template-columns:repeat(2,1fr)"><div class="st" style="cursor:default"><b>${P.length}</b>寄存產品種類</div><div class="st" style="cursor:default"><b>${P.reduce((t,x)=>t+x.tot,0)}</b>寄存總數量</div></div>`
- +P.map(x=>`<details class="card" data-id="st_${esc(x.k)}" ${open.has('st_'+x.k)?'open':''}><summary style="cursor:pointer"><b>${esc(x.name)}</b> <span class="tag gold">存貨 ${x.tot}</span></summary>${x.by.map(y=>`<div class="ch" style="padding:6px 0"><span>${esc(y.c.d.name)}${isAdmin?' <span class="mut">'+esc(y.c.ownerName)+'</span>':''}</span><span class="sp"></span><b>${y.qty}</b>${y.qty>0?`<button class="sm" data-a="sout" data-id="${y.c.id}" data-k="${esc(x.k)}">交貨</button>`:''}</div>`).join('')}</details>`).join('')||'<p class="mut" style="text-align:center">目前沒有寄存</p>'
- +`<h3 class="sec">寄存 / 交貨紀錄（近 3 年）</h3>`+(led.slice(0,300).map(({c,e})=>{const bu=e.buyId?buysOf(c).find(x=>x.id===e.buyId):null;return`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b><span class="tag ${e.type==='out'?'':'gold'}">${e.type==='out'?'📤 交貨':'📥 寄存'}</span><span class="sp"></span><span class="mut">${esc(e.date)}</span></div><div class="mut">${esc(e.name)} ×${e.qty}${bu?' · 對應購買 '+esc(bu.date||''):''}${e.note?' · '+esc(e.note):''}${isAdmin?' · '+esc(c.ownerName):''}</div></div>`}).join('')||'<p class="mut" style="text-align:center">沒有紀錄</p>')}
+ const hit=(...a)=>!k||a.some(v=>(v||'').toLowerCase().includes(k)),
+ P=[...M.values()].filter(x=>x.tot>0&&hit(x.name,...x.by.map(y=>y.c.d.name))),
+ CU=L.map(c=>({c,B:bal(c).filter(r=>r.qty>0)})).filter(x=>x.B.length&&hit(x.c.d.name,...x.B.map(r=>r.name))),
+ EV=L.flatMap(c=>tlines(c).map(x=>({c,x}))).filter(({c,x})=>hit(c.d.name,x.name)).sort((a,z)=>z.x.d.localeCompare(a.x.d)),
+ card=({c,x})=>`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b><span class="tag ${x.t==='out'?'':'gold'}">${x.t==='buy'?'🛒 購買':x.t==='in'?'📥 寄存':'📤 交貨'}</span><span class="sp"></span><span class="mut">${esc(x.d)}</span></div><div class="mut">${esc(x.name)} ×${x.q}${x.t!=='buy'?' · 存餘 '+x.bal:''}${x.note&&x.note!=='購買寄存'?' · '+esc(x.note):''}${isAdmin?' · '+esc(c.ownerName):''}</div></div>`,
+ prodH=a=>a.map(x=>`<details class="card" data-id="st_${esc(x.k)}" ${open.has('st_'+x.k)?'open':''}><summary style="cursor:pointer"><b>${esc(x.name)}</b> <span class="tag gold">存貨 ${x.tot}</span></summary>${x.by.filter(y=>y.qty>0).map(y=>`<div style="padding:6px 0"><div class="ch"><span>${esc(y.c.d.name)}${isAdmin?' <span class="mut">'+esc(y.c.ownerName)+'</span>':''}</span><span class="sp"></span><b>${y.qty}</b><button class="sm" data-a="sout" data-id="${y.c.id}" data-k="${esc(x.k)}">交貨</button></div><details><summary class="mut" style="cursor:pointer">購買 / 寄存 / 交貨過程</summary>${tlHTML(tlines(y.c,x.k))}</details></div>`).join('')}</details>`).join('')||'<p class="mut" style="text-align:center">目前沒有寄存</p>',
+ custH=CU.map(({c,B})=>`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}<span class="sp"></span><button class="sm" data-a="sin" data-id="${c.id}">＋ 寄存</button></div>${B.map(r=>`<div class="ch" style="padding:6px 0"><span>${esc(r.name)}</span><span class="sp"></span><b>${r.qty}</b><button class="sm" data-a="sout" data-id="${c.id}" data-k="${esc(r.k)}">交貨</button></div>`).join('')}<details><summary class="mut" style="cursor:pointer">購買 / 寄存 / 交貨過程</summary>${tlHTML(tlines(c),c.id)}</details></div>`).join('')||'<p class="mut" style="text-align:center">目前沒有顧客寄存</p>',
+ mEV=t=>EV.filter(({x})=>x.t===t&&x.d.slice(0,7)===mo),
+ box=(key,n,l)=>`<div class="st ${stkSel===key?'on':''}" data-a="ssel" data-k="${key}"><b>${n}</b>${l}</div>`,
+ T={prod:['寄存產品',prodH(P.slice().sort((a,z)=>a.name.localeCompare(z.name,'zh-Hant')))],tot:['存貨數量（多 → 少）',prodH(P.slice().sort((a,z)=>z.tot-a.tot))],cust:['寄存中的顧客',custH],in:['本月寄存',mEV('in').map(card).join('')||'<p class="mut" style="text-align:center">本月沒有寄存紀錄</p>'],out:['本月交貨',mEV('out').map(card).join('')||'<p class="mut" style="text-align:center">本月沒有交貨紀錄</p>']},sel=T[stkSel];
+ b.innerHTML=`<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(88px,1fr))">${box('prod',P.length,'寄存產品種類')}${box('tot',P.reduce((t,x)=>t+x.tot,0),'存貨總數量')}${box('cust',CU.length,'寄存顧客')}${box('in',mEV('in').length,'本月寄存')}${box('out',mEV('out').length,'本月交貨')}</div>`
+ +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}</h3><span class="sp"></span><button data-a="ssel" data-k="${stkSel}">收起 ▴</button></div>`+sel[1]
+  :prodH(P.slice().sort((a,z)=>z.tot-a.tot))+`<h3 class="sec">購買 / 寄存 / 交貨紀錄（近 3 年）</h3>`+(EV.slice(0,300).map(card).join('')||'<p class="mut" style="text-align:center">沒有紀錄</p>'))}
 function stockView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="stq" placeholder="搜尋產品 / 顧客" value="${esc(stkQ)}"><button class="pri" data-a="sin" data-id="">＋ 新增寄存</button></div><div id="slist"></div>`;stockList()}
 
 /* ---------- 跟進進度 ---------- */
@@ -227,8 +237,10 @@ function progRows(m){const r=[];myList().forEach(c=>buysOf(c).forEach(b=>(b.hist
  return r.sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name,'zh-Hant')).map((x,i)=>({...x,gi:i,i:0}))}
 const progCols=()=>{const C=[{h:'日期',v:x=>x.date},{h:'類別',v:x=>x.kind},{h:'對象',v:x=>x.name},{h:'購買產品 / 階段',v:x=>x.what},{h:'跟進進度',v:x=>x.st},{h:'下一步',v:x=>x.next},{h:'備註',v:x=>x.note}];if(isAdmin)C.unshift({h:'填寫者',v:x=>x.owner});return C};
 const exCfg=()=>exSrc==='prog'?(()=>{const m=progM||curMonth(),r=progRows(m);return{rows:r,C:progCols(),title:`${m} 跟進進度報表`,file:`跟進進度_${m}`,T:r=>`共 ${r.length} 筆紀錄`}})():{rows:rowsX(),C:cols(),title:'顧客跟進報表',file:'顧客跟進',T:totalT};
-function progView(){const m=progM||(progM=curMonth()),R=progRows(m),cnt={};R.forEach(x=>cnt[x.stc]=(cnt[x.stc]||0)+1);
- $('#main').innerHTML=`<div class="bar">${fsel()}<input type="month" id="pm" value="${m}"></div><div class="bar"><button data-a="xls" data-s="prog">📊 匯出 Excel</button><button data-a="pdf" data-s="prog">📄 匯出 PDF</button><button data-a="jpg" data-s="prog">🖼 匯出 JPG</button></div><div class="stats" style="grid-template-columns:repeat(3,1fr)">${Object.entries(HS).map(([k,n])=>`<div class="st" style="cursor:default"><b>${cnt[k]||0}</b>${n}</div>`).join('')}<div class="st" style="cursor:default"><b>${cnt.opp||0}</b>Opp 動態</div></div>`
+function progView(){const m=progM||(progM=curMonth()),A=progRows(m),cnt={};A.forEach(x=>cnt[x.stc]=(cnt[x.stc]||0)+1);
+ const R=progSel?A.filter(x=>x.stc===progSel):A,LB={...HS,opp:'Opp 動態'},box=(k,n,l)=>`<div class="st ${progSel===k?'on':''}" data-a="prsel" data-k="${k}"><b>${n}</b>${l}</div>`;
+ $('#main').innerHTML=`<div class="bar">${fsel()}<input type="month" id="pm" value="${m}"></div><div class="bar"><button data-a="xls" data-s="prog">📊 匯出 Excel</button><button data-a="pdf" data-s="prog">📄 匯出 PDF</button><button data-a="jpg" data-s="prog">🖼 匯出 JPG</button></div><div class="stats" style="grid-template-columns:repeat(4,1fr)">${box('',A.length,'全部')}${Object.entries(LB).map(([k,n])=>box(k,cnt[k]||0,n)).join('')}</div>`
+ +(progSel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${LB[progSel]}（${R.length}）</h3><span class="sp"></span><button data-a="prsel" data-k="${progSel}">收起 ▴</button></div>`:'')
  +(R.length?R.slice().reverse().map(x=>`<div class="card"><div class="ch"><b>${esc(x.name)}</b><span class="tag ${x.kind==='Opp'?'gold':''}">${x.kind}</span><span class="tag ${tagc(x.stc)}">${esc(x.st)}</span><span class="sp"></span><span class="mut">${x.date}</span></div><div class="mut">${esc(x.what)}${isAdmin?' · '+esc(x.owner):''}</div><div class="mut">下一步：${esc(x.next)}${x.note?' · 備註：'+esc(x.note):''}</div></div>`).join(''):'<p class="mut" style="text-align:center">這個月份沒有跟進紀錄</p>')}
 
 let homeSel='';
@@ -288,7 +300,7 @@ function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x
   if(v==='rebuy'){const dt=$('#x_d').value||t,q=Math.max(1,parseInt($('#x_q').value)||1);h.prev=o.date;h.buy=dt;h.n=n;o.date=dt;o.qty=q;o.due=addDays(dt,n)}
   o.hist=[...(o.hist||[]),h];
   try{await db.collection('customers').doc(id).update({buys:B});closeModal();toast('已記錄')}catch(e){toast('儲存失敗：'+e.message)}}}
-function abuy(id){items=[];path=[];openModal(`<h3>新增購買</h3><label>購買日期</label><input type="date" id="ab_d" value="${ymd(new Date())}"><label>購買產品與數量</label><div id="itemsBox"></div><label class="chk"><input type="checkbox" id="ab_s">同時登記為寄存（暫存在我這，之後可記錄交貨）</label><div class="btns"><button class="pri" data-a="absave" data-id="${id}">儲存</button><button data-a="close">取消</button></div>`);itemsUI()}
+function abuy(id){items=[];path=[];stockMode=0;openModal(`<h3>新增購買</h3><label>購買日期</label><input type="date" id="ab_d" value="${ymd(new Date())}"><label>購買產品與數量</label><div id="itemsBox"></div><p class="mut">每項產品右邊可填「寄存」數量（暫存在你這，之後可記錄交貨），會連動到寄存頁。</p><div class="btns"><button class="pri" data-a="absave" data-id="${id}">儲存</button><button data-a="close">取消</button></div>`);itemsUI()}
 function pfu(id,pid){const c=custs.find(x=>x.id===id),p=promos.find(x=>x.id===pid),n=pMatch(p,c);
  openModal(`<h3>🎁 ${esc(p.title)}</h3><div class="mut">發送給 ${esc(c.d.name)}</div>${p.img?`<img src="${p.img}" style="width:100%;border-radius:12px;margin:8px 0"><div class="btns"><a class="btn" download="promo.jpg" href="${p.img}">⬇ 下載圖片（進入對話後附上）</a></div>`:''}<label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>促銷文案</label><textarea id="fmsg" rows="6">${esc(fill(p.text,c,null,n.join('、')))}</textarea><div class="btns"><button class="pri" id="fgo">複製文案並前往平台</button><button id="pdone">已發送</button></div>`);
  $('#fgo').onclick=goLink;$('#pdone').onclick=async()=>{await db.collection('customers').doc(id).update({['promoSent.'+pid]:ymd(new Date())});closeModal();toast('已記錄')}}
@@ -301,7 +313,7 @@ function fieldHTML(f,d){const v=d[f.id],L=`<label>${esc(f.label)}${f.req?' <i st
  if(f.type==='channel')return L+`<select data-f="${f.id}">${chOpts(v)}</select>`;
  if(f.type==='textarea')return L+`<textarea data-f="${f.id}" rows="3">${esc(v)}</textarea>`;
  return L+`<input data-f="${f.id}" type="${f.type==='number'?'number':f.type==='date'?'date':'text'}" value="${esc(v)}" ${f.id==='account'?'placeholder="電話（含國碼）/ 用戶名 / 連結"':''}>`}
-function cform(id){const c=id?custs.find(x=>x.id===id):null,d=c?c.d:{};items=[];path=[];editing=!!id;
+function cform(id){const c=id?custs.find(x=>x.id===id):null,d=c?c.d:{};items=[];path=[];stockMode=0;editing=!!id;
  openModal(`<h3>${c?'編輯顧客':'新增顧客'}</h3>${fields.filter(f=>f.on&&!sk(f)).map(f=>fieldHTML(f,d)).join('')}<div class="btns"><button class="pri" id="csave" data-a="csave" data-id="${id||''}">儲存</button><button data-a="close">取消</button></div>`);itemsUI()}
 function chain(id){const a=[];while(id){a.unshift(id);id=NM.get(id).parent||null}return a}
 function itemsUI(){const b=$('#itemsBox');if(!b)return;let h='<div class="casc">',p=null;
@@ -311,7 +323,7 @@ function itemsUI(){const b=$('#itemsBox');if(!b)return;let h='<div class="casc">
  h+=`</div><input list="plist" id="psearch" placeholder="或直接輸入產品名稱搜尋" style="margin-top:8px"><datalist id="plist">${nodes.filter(n=>n.p).map(n=>`<option value="${esc(n.name)}">`).join('')}</datalist>`;
  const last=NM.get(path[path.length-1]);
  if(last&&last.p)h+=`<div class="addrow"><b>${esc(last.name)}</b><input type="text" inputmode="numeric" id="pq" value="1" style="width:80px"><button class="pri" data-a="padd">加入</button></div>`;
- h+=`<div>${items.map((it,i)=>`<span class="chip">${esc(it.name)} ×${it.qty}<a data-a="pdel" data-id="${i}">✕</a></span>`).join('')}</div>`;b.innerHTML=h}
+ h+=`<div>${items.map((it,i)=>`<span class="chip">${esc(it.name)} ×${it.qty}${stockMode?'':`<span class="mut"> 寄存</span><input data-dep="${i}" inputmode="numeric" placeholder="0" value="${it.dep||''}" style="width:46px;padding:2px 6px;margin:0 4px">`}<a data-a="pdel" data-id="${i}">✕</a></span>`).join('')}</div>`;b.innerHTML=h}
 function pushPending(){const last=NM.get(path[path.length-1]);if(last&&last.p&&$('#pq')){items.push({id:last.id,name:last.name,qty:Math.max(1,+$('#pq').value||1),cycle:last.cycle});path=[]}}
 function readForm(){const d={},err=[];
  for(const f of fields.filter(f=>f.on&&!sk(f))){let v;
@@ -322,7 +334,7 @@ function readForm(){const d={},err=[];
  return{d,err}}
 async function saveC(id){const{d,err}=readForm();if(err.length)return toast('請填寫：'+err.join('、'));const btn=$('#csave');btn.disabled=true;
  try{if(id){const c=custs.find(x=>x.id===id);await db.collection('customers').doc(id).update({d:{...c.d,...d}})}
-  else{const date=d.purchaseDate||ymd(new Date()),its=d.items||[];delete d.items;const ref=await db.collection('customers').add({ownerUid:me.uid,ownerName:me.realName,ownerNo:me.memberNo,d,buys:its.map(i=>mkBuy(i,date)),at:Date.now()});cOpen.set(ref.id,true);const op=opps.find(o=>!o.custId&&o.ownerUid===me.uid&&(o.name||'').trim().toLowerCase()===(d.name||'').trim().toLowerCase());if(op){db.collection('opps').doc(op.id).update({custId:ref.id,stage:'joined',hist:[...(op.hist||[]),{at:ymd(new Date()),act:'成為顧客'}]});ref.update({oppId:op.id})}}
+  else{const date=d.purchaseDate||ymd(new Date()),its=d.items||[];delete d.items;const bs=its.map(i=>mkBuy(i,date)),stk=[];bs.forEach((b,k)=>{const q=Math.min(its[k].dep||0,b.qty);if(q>0)stk.push({id:uid(),date,pid:b.pid,name:b.name,qty:q,type:'in',note:'購買寄存',buyId:b.id,at:Date.now()})});const ref=await db.collection('customers').add({ownerUid:me.uid,ownerName:me.realName,ownerNo:me.memberNo,d,buys:bs,stock:stk,at:Date.now()});cOpen.set(ref.id,true);const op=opps.find(o=>!o.custId&&o.ownerUid===me.uid&&(o.name||'').trim().toLowerCase()===(d.name||'').trim().toLowerCase());if(op){db.collection('opps').doc(op.id).update({custId:ref.id,stage:'joined',hist:[...(op.hist||[]),{at:ymd(new Date()),act:'成為顧客'}]});ref.update({oppId:op.id})}}
   closeModal();toast('已儲存')}catch(e){toast('儲存失敗：'+e.message);btn.disabled=false}}
 
 /* ---------- 管理員：成員 ---------- */
@@ -415,6 +427,8 @@ document.addEventListener('click',async e=>{
  if(a==='oreopen'){const o=opps.find(x=>x.id===id);db.collection('opps').doc(id).update({stage:'list',hist:[...(o.hist||[]),{at:ymd(new Date()),act:'重新開啟'}]});return}
  if(a==='oconv'){const o=opps.find(x=>x.id===id);try{const ref=await db.collection('customers').add({ownerUid:o.ownerUid,ownerName:o.ownerName,ownerNo:o.ownerNo||'',d:{name:o.name,callName:o.callName||'',channel:o.channel||'whatsapp',account:o.account||''},buys:[],oppId:o.id,at:Date.now()});await db.collection('opps').doc(id).update({custId:ref.id,stage:'joined',hist:[...(o.hist||[]),{at:ymd(new Date()),act:'轉為顧客'}]});cOpen.set(ref.id,true);toast('已轉為顧客，可到顧客頁新增購買')}catch(x){toast('失敗：'+x.message)}return}
  if(a==='sin')return sin(id||'');
+ if(a==='ssel'){stkSel=stkSel===t.dataset.k?'':t.dataset.k;return stockList()}
+ if(a==='prsel'){progSel=progSel===t.dataset.k?'':t.dataset.k;return progView()}
  if(a==='sout')return sout(id,t.dataset.k);
  if(a==='shist')return shist(id);
  if(a==='sdel'){if(confirm('刪除這筆寄存紀錄？')){const c=custs.find(x=>x.id===id);await db.collection('customers').doc(id).update({stock:stockOf(c).filter(e=>e.id!==t.dataset.e)});shist(id)}return}
@@ -431,7 +445,7 @@ document.addEventListener('click',async e=>{
  if(a==='abuy')return abuy(id);
  if(a==='ctog'){const c=custs.find(x=>x.id===id),op=cOpen.has(id)?cOpen.get(id):rems(custs).some(r=>r.c.id===id);cOpen.set(id,!op);return drawList()}
  if(a==='absave'){pushPending();if(!items.length)return toast('請先選擇產品並按「加入」');const c=custs.find(x=>x.id===id),dt=$('#ab_d').value||ymd(new Date());
-  const NB=items.map(i=>mkBuy(i,dt)),U={buys:[...buysOf(c),...NB]};if($('#ab_s')?.checked)U.stock=[...stockOf(c),...NB.map(b=>({id:uid(),date:dt,pid:b.pid,name:b.name,qty:b.qty,type:'in',note:'購買寄存',buyId:b.id,at:Date.now()}))];
+  const NB=items.map(i=>mkBuy(i,dt)),U={buys:[...buysOf(c),...NB]};const SK=NB.flatMap((b,k)=>{const q=Math.min(items[k].dep||0,b.qty);return q>0?[{id:uid(),date:dt,pid:b.pid,name:b.name,qty:q,type:'in',note:'購買寄存',buyId:b.id,at:Date.now()}]:[]});if(SK.length)U.stock=[...stockOf(c),...SK];
   try{await db.collection('customers').doc(id).update(U);cOpen.set(id,true);closeModal();toast('已新增購買')}catch(x){toast('失敗：'+x.message)}return}
  if(a==='bdel'){if(confirm('刪除這筆購買紀錄？')){const c=custs.find(x=>x.id===id);db.collection('customers').doc(id).update({buys:buysOf(c).filter(b=>b.id!==t.dataset.b)})}return}
  if(a==='pfu')return pfu(id,t.dataset.p);
@@ -471,6 +485,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('toggle',e=>{const id=e.target.dataset?.id;if(id&&e.target.tagName==='DETAILS')e.target.open?open.add(id):open.delete(id)},true);
 document.addEventListener('input',e=>{const t=e.target;
+ if(t.dataset.dep!==undefined){items[+t.dataset.dep].dep=Math.max(0,parseInt(t.value)||0);return}
  if(t.id==='p_s')return psug(t.value);
  if(t.id==='sq'){q=t.value;drawList()}
  if(t.id==='oq'){oq=t.value;return oList()}
