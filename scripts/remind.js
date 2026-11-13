@@ -65,7 +65,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     if (!users.has(u)) continue;
     if (o.stage === 'list') get(u).rows.push({ n: o.name, t: '🤝 Opp 待邀約', df: 0 });
     else if (o.stage === 'demo') { const dt = (o.demoAt || '').slice(0, 10); if (dt && diff(dt) <= cfg.ahead) get(u).rows.push({ n: o.name, t: `🤝 展示計劃 ${(o.demoAt || '').replace('T', ' ')}`, df: diff(dt) }); }
-    else if (o.stage === 'invite' || o.stage === 'follow') { if (o.due && diff(o.due) <= 0) get(u).rows.push({ n: o.name, t: `🤝 Opp ${o.stage === 'invite' ? '邀約跟進' : '再跟進'}`, df: diff(o.due) }); }
+    else if (o.stage === 'invite' || o.stage === 'follow') { if (o.due && diff(o.due) <= 0) get(u).rows.push({ n: o.name, t: `🤝 Opp ${o.stage === 'invite' ? '需再邀約（可一鍵發送再邀約講稿）' : '需跟進'}`, df: diff(o.due) }); }
   }
   const tr = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
   const td = 'padding:10px;border-bottom:1px solid #e9e2d2';
