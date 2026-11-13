@@ -39,6 +39,8 @@ html[data-theme=dark]{color-scheme:dark;--card:#1a1f2e;--hd:#0b0e15;--onbg:#c9a4
 html[data-theme=dark] .tag{background:#2a3044;color:#c9cedb}html[data-theme=dark] .tag.red,html[data-theme=dark] .tag.disabled{background:#3d2423;color:#f08a80}html[data-theme=dark] .tag.gold,html[data-theme=dark] .tag.pending{background:#3a3322;color:#e6c77a}html[data-theme=dark] .tag.approved{background:#1f3a31;color:#6fd3a9}html[data-theme=dark] .chip{background:#3a3322}
 .steps{display:flex;gap:4px;margin:8px 0}.stp2{flex:1;text-align:center;font-size:11px;padding:6px 2px;border-radius:8px;background:rgba(128,128,128,.15);color:var(--mut)}.stp2.done{background:#dff3ea;color:#2f8f6a}.stp2.cur{background:var(--onbg);color:var(--onfg);font-weight:700}
 html[data-theme=dark] .stp2.done{background:#1f3a31;color:#6fd3a9}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}.col{min-width:0}.colh{font:600 17px 'Noto Sans TC';padding:11px 16px;border-radius:12px;background:var(--hd);color:var(--gold2);margin-bottom:12px}.colh.o{background:var(--gold);color:#fff}.stp2 small{font-size:10px;opacity:.85}.steps{flex-wrap:wrap}
+@media(max-width:820px){.two{grid-template-columns:1fr}}
 @media(max-width:600px){.stats{grid-template-columns:repeat(4,1fr);gap:6px}.st{padding:10px 4px}.g2{grid-template-columns:1fr}}
 </style>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}catch(e){}</script></head>
@@ -70,7 +72,9 @@ const DEF_CFG={ahead:3,renewDays:365,renewAhead:30,
 tpl:'Hi {稱呼}～我是{下線} 😊\n上次您購買的{產品}，算一算差不多快用完了。最近使用的感覺如何呢？需要我幫您安排補貨嗎？',
 tplRenew:'Hi {稱呼}～我是{下線} 😊\n您的會員資格快到續約時間了，想先跟您確認，需要我協助辦理續約嗎？',
 tplInvite:'Hi {稱呼}～我是{下線} 😊\n最近我在做一個很不錯的健康事業計劃，覺得很適合你，想邀請你抽 15 分鐘了解一下，看看是否有興趣。你這幾天哪個時間方便呢？',
-tplOppFu:'Hi {稱呼}～我是{下線} 😊\n上次跟你分享的計劃，不知道你考慮得怎麼樣了？有任何疑問都可以問我，我很樂意為你解答！'};
+tplOppFu:'Hi {稱呼}～我是{下線} 😊\n上次跟你分享的計劃，不知道你考慮得怎麼樣了？有任何疑問都可以問我，我很樂意為你解答！',
+tplReinvite:'Hi {稱呼}～我是{下線} 😊\n前幾天有跟你提過想邀請你了解一個健康事業計劃，不知道你有沒有看到訊息？只需要 15 分鐘，你哪天方便呢？',
+tplNoReply:'Hi {稱呼}～我是{下線} 😊\n上次關心你的{產品}使用狀況，不知道你有沒有看到訊息？想了解你用得怎麼樣，有任何問題都可以跟我說喔！'};
 let promos=[],fctx={},editing=0,me,isAdmin,fields=[],nodes=[],NM=new Map(),cfg={},custs=[],users=[],tab='home',filterUid='all',q='',items=[],path=[],notified=0;const open=new Set();
 const idx=()=>NM=new Map(nodes.map(n=>[n.id,n])),kids=p=>nodes.filter(n=>(n.parent||null)===p),uid=()=>'n'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
 const ymd=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
@@ -102,7 +106,7 @@ async function start(){
  await new Promise(res=>{let first=1;db.collection('config').onSnapshot(s=>{s.docs.forEach(d=>{const x=d.data();if(d.id==='fields'&&x.list){fields=x.list;if(!x.bday&&!fields.some(f=>f.id==='birthday')){const k=fields.findIndex(f=>f.id==='items');fields.splice(k<0?fields.length:k,0,JSON.parse(JSON.stringify(BDAY)))}}if(d.id==='catalog'&&x.nodes){nodes=x.nodes;idx()}if(d.id==='settings')cfg={...DEF_CFG,...x}});if(first){first=0;res()}else redraw()},e=>{toast('讀取設定失敗：'+e.message);res()})});
  db.collection('promos').onSnapshot(s=>{promos=s.docs.map(d=>({id:d.id,...d.data()}));redraw()});
  
- const tabs=[['home','提醒'],['cust','顧客'],['opp','Opp'],['stock','寄存'],['prog','進度'],['tpl','我的文案']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
+ const tabs=[['home','今日事項'],['cust','顧客'],['opp','Opp'],['stock','寄存'],['prog','進度'],['tpl','我的文案']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
  $('#app').innerHTML=`<header><span class="brand">◆ 顧客跟進</span><span>${esc(me.realName)}${isAdmin?' · 管理員':''} <button class="ghost" data-a="theme">${curTheme()==='dark'?'☀':'🌙'}</button> <button class="ghost" data-a="out">登出</button></span></header><nav>${tabs.map(t=>`<a data-a="tab" data-id="${t[0]}">${t[1]}</a>`).join('')}</nav><main id="main"></main>`;
  const base=db.collection('customers'),qy=isAdmin?base:base.where('ownerUid','==',me.uid);
  qy.onSnapshot(s=>{custs=s.docs.map(d=>({id:d.id,...d.data()}));if(['home','cust','stock','prog','opp'].includes(tab))redraw();if(!notified){notified=1;notify()}},e=>toast('讀取失敗：'+e.message));
@@ -129,8 +133,8 @@ const when=n=>n<0?`逾期 ${-n} 天`:n===0?'今天':`還有 ${n} 天`,cls=n=>n<0
 const occOf=(f,v)=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(v||''))return null;if(!f.yearly)return v;const y=new Date().getFullYear(),a=y+v.slice(4);return diff(a)>=-3?a:(y+1)+v.slice(4)};
 const fRems=(L=myList())=>fields.filter(f=>f.on&&f.remOn&&f.type==='date').flatMap(f=>L.map(c=>{const o=occOf(f,c.d[f.id]);return o?{c,f,date:o,df:diff(o)}:null}).filter(x=>x&&x.df<=0&&(!x.f.yearly||x.df>=-3)&&((x.c.fSent||{})[x.f.id]!==x.date))).sort((a,b)=>a.df-b.df);
 const bdayMonth=(L=myList())=>{const mo=ymd(new Date()).slice(5,7),out={};fields.filter(f=>f.on&&f.remOn&&f.monthly&&f.type==='date').forEach(f=>{const a=L.filter(c=>(c.d[f.id]||'').slice(5,7)===mo).map(c=>({n:c.d.name,d:+c.d[f.id].slice(8,10)})).sort((x,y)=>x.d-y.d);if(a.length)out[f.id]=a});return out};
-function notify(){const n=rems().filter(r=>r.df<=0).length,m=promoRems().length,b=fRems().filter(x=>x.df===0).length,bm=Object.keys(bdayMonth()).length,k='bm'+ymd(new Date()).slice(0,7);let first=false;try{first=!localStorage.getItem(k);if(first&&bm)localStorage.setItem(k,1)}catch(e){}
- const P=[n&&`${n} 項需要跟進`,b&&`${b} 位顧客今天有提醒（生日等）`,first&&bm&&'本月有顧客生日，請到提醒頁查看',m&&`${m} 則促銷可發送`].filter(Boolean);
+function notify(){const n=rems().filter(r=>r.df<=0).length,oo=oRems().length,m=promoRems().length,b=fRems().filter(x=>x.df===0).length,bm=Object.keys(bdayMonth()).length,k='bm'+ymd(new Date()).slice(0,7);let first=false;try{first=!localStorage.getItem(k);if(first&&bm)localStorage.setItem(k,1)}catch(e){}
+ const P=[n&&`${n} 項需要跟進`,b&&`${b} 位顧客今天有提醒（生日等）`,first&&bm&&'本月有顧客生日，請到提醒頁查看',m&&`${m} 則促銷可發送`,oo&&`${oo} 位 Opp 需處理`].filter(Boolean);
  if(P.length&&'Notification'in window&&Notification.permission==='granted')new Notification('顧客跟進提醒',{body:P.join('、')})}
 const fill=(t,c,b,names)=>t.replaceAll('{稱呼}',c.d.callName||c.d.name||'').replaceAll('{顧客}',c.d.name||'').replaceAll('{產品}',names||(b?b.name:'')).replaceAll('{下線}',c.ownerName||'');
 const ftplOf=f=>(me.ftpl||{})[f.id]||f.tpl||'Hi {稱呼}～我是{下線} 😊';
@@ -142,7 +146,7 @@ const fieldSec=(F,BM)=>{let h='';const mo=+ymd(new Date()).slice(5,7);
 function ffu(id,fid){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===fid),o=occOf(f,c.d[f.id]);
  openModal(`<h3>${esc(f.label)} · ${esc(c.d.name)}</h3><label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>文案（可直接修改）</label><textarea id="fmsg" rows="6">${esc(fmsg(c,f))}</textarea><div class="btns"><button class="pri" id="fgo">複製文案並前往平台</button><button id="pdone">已發送</button></div>`);
  $('#fgo').onclick=goLink;$('#pdone').onclick=async()=>{await db.collection('customers').doc(id).update({['fSent.'+fid]:o,['fAt.'+fid]:ymd(new Date())});closeModal();toast('已記錄')}}
-const msg=(c,kind,b)=>fill(kind==='renew'?(me.tplRenew||cfg.tplRenew):(me.tpl||cfg.tpl),c,b);
+const msg=(c,kind,b)=>fill(kind==='renew'?(me.tplRenew||cfg.tplRenew):(b&&b.st==='noreply')?(me.tplNoReply||cfg.tplNoReply):(me.tpl||cfg.tpl),c,b);
 function link(ch,acc,text){acc=(acc||'').trim();const T=encodeURIComponent(text),u=acc.replace(/^@/,'');
  if(ch==='whatsapp')return'https://wa.me/'+acc.replace(/\D/g,'')+'?text='+T;
  if(/^https?:\/\//i.test(acc))return acc;
@@ -156,7 +160,8 @@ const wa=(u,t)=>'https://wa.me/'+(u.phone||'').replace(/\D/g,'')+'?text='+encode
 
 /* ---------- 提醒頁 ---------- */
 const fsel=()=>isAdmin?`<select id="flt"><option value="all">全部下線</option>${users.filter(u=>u.status==='approved').map(u=>`<option value="${u.id}" ${filterUid===u.id?'selected':''}>${esc(u.realName)}（${esc(u.memberNo)}）</option>`).join('')}</select>`:'';
-const remCard=r=>{const c=r.c,b=r.b;return`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b><span class="tag ${cls(r.df)}">${r.kind==='renew'?'會員續約':'產品跟進'} · ${when(r.df)}</span></div><div class="mut">${b?`${esc(b.name)} ×${b.qty} · 購買於 ${esc(b.date)} · `:''}應跟進 ${r.date}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div><div class="btns"><button class="pri" data-a="fu" data-id="${c.id}" data-k="${r.kind}" data-b="${b?b.id:''}">立即跟進</button><a class="btn" href="${calURL(r)}" target="_blank">📅 加入日曆提醒</a></div></div>`};
+const remCard=r=>{const c=r.c,b=r.b,nr=!!b&&b.st==='noreply'&&r.kind!=='renew',lh=b&&(b.hist||[]).slice(-1)[0],sentT=!!lh&&lh.st==='sent'&&lh.at===ymd(new Date());
+ return`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b><span class="tag ${cls(r.df)}">${r.kind==='renew'?'會員續約':nr?'沒回覆再跟進':'產品跟進'} · ${when(r.df)}</span>${sentT?'<span class="tag approved">✓ 今天已發送</span>':''}</div><div class="mut">${b?`${esc(b.name)} ×${b.qty} · 購買於 ${esc(b.date)} · `:''}應跟進 ${r.date}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div><div class="btns">${nr&&!sentT?`<button class="pri" data-a="bquick" data-id="${c.id}" data-b="${b.id}">📨 一鍵發送跟進</button>`:''}<button class="${nr&&!sentT?'':'pri'}" data-a="fu" data-id="${c.id}" data-k="${r.kind}" data-b="${b?b.id:''}">${nr?'記錄進度':'立即跟進'}</button><a class="btn" href="${calURL(r)}" target="_blank">📅 加入日曆提醒</a></div></div>`};
 const prCard=x=>`<div class="card"><div class="ch"><b>${esc(x.c.d.name)}</b><span class="tag gold">🎁 ${esc(x.p.title)}</span></div><div class="mut">買過：${esc(x.n.join('、'))}${isAdmin?' · 填寫者 '+esc(x.c.ownerName):''}</div><div class="btns"><button class="pri" data-a="pfu" data-id="${x.c.id}" data-p="${x.p.id}">發送促銷</button></div></div>`;
 const waText=u=>{const L=custs.filter(c=>c.ownerUid===u.id),R=rems(L).filter(r=>r.df<0),mx=R.length?-R[0].df:0,last=L.flatMap(buysOf).map(b=>b.at||'').sort().pop()||'',url=location.href.split('#')[0];
  return R.length?`Hi ${u.realName}，你目前有 ${R.length} 項顧客跟進已逾期（最久 ${mx} 天）${last?'，上次跟進是 '+last:'，系統內還沒有跟進紀錄'}，請盡快進入系統處理 😊\n${url}`:`Hi ${u.realName}，記得定期進入系統跟進顧客喔 😊\n${url}`};
@@ -166,40 +171,73 @@ function monCard(){const rows=users.filter(u=>u.status==='approved'&&u.email!==A
   return{u,R,mx,last,t}}).sort((a,b)=>b.mx-a.mx);
  return`<div class="card"><details ${rows.some(r=>r.mx>0)?'open':''}><summary><b>👥 下線跟進狀況</b></summary>${rows.map(r=>`<div class="frow"><div class="ch"><b>${esc(r.u.realName)}</b><span class="tag ${r.R.length?'red':'approved'}">逾期 ${r.R.length} 項${r.mx?'（最久 '+r.mx+' 天）':''}</span></div><div class="mut">上次跟進：${r.last||'尚無紀錄'}${r.u.phone?'':' · 未設電話（會開啟 WhatsApp 後自選聯絡人）'}</div><div class="btns"><a class="btn" target="_blank" href="${wa(r.u,r.t)}">💬 WhatsApp 提醒</a></div></div>`).join('')||'<p class="mut">尚無下線</p>'}</details></div>`}
 /* ---------- Opp ---------- */
-let opps=[],oq='',oppF='active',progM='',exSrc='cust',stkQ='',stkSel='',progSel='',stockMode=0;
-const OST={list:'列名單',invite:'邀約',demo:'展示計劃',follow:'跟進',joined:'已加入',closed:'已結束'};
+let opps=[],oq='',oppF='active',progM='',exSrc='cust',stkQ='',stkSel='',progSel='',stockMode=0,homeOSel='',oppSel='';
+const OST={list:'未邀約名單',invite:'邀約',demo:'Opp（展示計劃）',follow:'跟進',joined:'已加入',closed:'已拒絕'};
+const OSTEP=[['list','列名單'],['invite','邀約'],['demo','展示計劃'],['follow','跟進']];
+const todayS=()=>ymd(new Date());
 const myOpps=()=>opps.filter(o=>filterUid==='all'||o.ownerUid===filterUid);
 const oActive=o=>['list','invite','demo','follow'].includes(o.stage);
-const oDate=o=>o.stage==='demo'?((o.demoAt||'').slice(0,10)||ymd(new Date())):o.stage==='list'?ymd(new Date()):(o.due||ymd(new Date()));
-const oRems=(L=myOpps())=>L.filter(oActive).map(o=>{const date=oDate(o);return{o,date,df:diff(date),opp:1}}).filter(x=>x.o.stage==='list'||x.df<=cfg.ahead);
-const oDone=()=>{const t=ymd(new Date());return myOpps().flatMap(o=>(o.hist||[]).filter(h=>h.at===t).map(h=>({c:{d:{name:o.name}},t:'🤝 Opp：'+h.act})))};
+const oFin=o=>o.stage==='joined'||o.stage==='closed';
+const needRe=o=>o.stage==='invite'&&!!o.due&&o.due<=todayS();
+const oDate=o=>o.stage==='demo'?((o.demoAt||'').slice(0,10)||todayS()):o.stage==='list'?todayS():(o.due||todayS());
+const oDue=o=>o.stage==='list'||needRe(o)||(o.stage==='follow'&&diff(oDate(o))<=0)||(o.stage==='demo'&&diff(oDate(o))<=cfg.ahead);
+const oRems=(L=myOpps())=>L.filter(oActive).filter(oDue).map(o=>({o,date:oDate(o),df:diff(oDate(o)),opp:1}));
 const oc=o=>({d:{name:o.name,callName:o.callName,channel:o.channel,account:o.account},ownerName:o.ownerName});
-const omsg=o=>fill((o.stage==='list'||o.stage==='invite')?(me.tplInvite||cfg.tplInvite):(me.tplOppFu||cfg.tplOppFu),oc(o),null,'');
-const stepBar=o=>{const S=['list','invite','demo','follow'],k=o.stage==='joined'?4:S.indexOf(o.stage);return`<div class="steps">${S.map((x,i)=>`<span class="stp2 ${i<k?'done':i===k?'cur':''}">${i+1} ${OST[x]}</span>`).join('')}</div>`};
-const ohist=o=>{const H=(o.hist||[]).slice().reverse();return H.length?`<details style="margin-top:6px"><summary class="mut" style="cursor:pointer">跟進紀錄（${H.length}）</summary>${H.map(h=>`<div class="mut" style="padding:2px 0 2px 12px">${esc(h.at)} · <b style="color:var(--ink)">${esc(h.act)}</b>${h.tm?' · 展示 '+esc(h.tm.replace('T',' ')):''}${h.n?`（${h.n} 天後）`:''}${h.note?' · '+esc(h.note):''}</div>`).join('')}</details>`:''};
-const oCard=(o,df)=>`<div class="card"><div class="ch"><b>${esc(o.name)}</b><span class="tag">${CH[o.channel]||''}</span><span class="tag ${df!=null&&df<0?'red':'gold'}">${OST[o.stage]}${o.stage==='demo'&&o.demoAt?' · '+esc(o.demoAt.replace('T',' ')):''}${df!=null&&oActive(o)&&o.stage!=='list'?' · '+when(df):''}</span>${o.custId?'<span class="tag approved">已是顧客</span>':''}</div>${stepBar(o)}<div class="mut">${isAdmin?'填寫者 '+esc(o.ownerName)+' · ':''}${esc(o.note||'')}</div>
- <div class="btns">${oActive(o)?`<button class="pri" data-a="ofu" data-id="${o.id}">${{list:'📨 一鍵邀約',invite:'邀約跟進',demo:'記錄展示結果',follow:'跟進'}[o.stage]}</button>`:''}${o.stage==='joined'&&!o.custId?`<button class="pri" data-a="oconv" data-id="${o.id}">轉為顧客</button>`:''}${o.custId?`<button data-a="gocust" data-id="${o.custId}">查看顧客</button>`:''}${o.stage==='closed'?`<button data-a="oreopen" data-id="${o.id}">重新開啟</button>`:''}<button data-a="oedit" data-id="${o.id}">編輯</button><button class="dg" data-a="odel" data-id="${o.id}">刪除</button></div>${ohist(o)}</div>`;
+const omsg=o=>fill((o.stage==='follow'||o.stage==='demo')?(me.tplOppFu||cfg.tplOppFu):needRe(o)?(me.tplReinvite||cfg.tplReinvite):(me.tplInvite||cfg.tplInvite),oc(o),null,'');
+const hstep=h=>h.s||(/列入|新增/.test(h.act)?'list':/成功邀約|展示/.test(h.act)?'demo':/加入|拒絕|成為顧客|轉為顧客|結束/.test(h.act)?'end':/邀約/.test(h.act)?'invite':/跟進/.test(h.act)?'follow':'invite');
+const pad2=n=>String(n).padStart(2,'0');
+const dtP=v=>{const m=(v||'').match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);return m?new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5]):null};
+const dtF=d=>d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+'T'+pad2(d.getHours())+pad2(d.getMinutes())+'00';
+function calOpp(o,tm){const s=dtP(tm||o.demoAt);if(!s)return'';const e=new Date(s.getTime()+36e5);return'https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('Opp 展示計劃：'+o.name)+'&dates='+dtF(s)+'/'+dtF(e)+'&details='+encodeURIComponent('聯絡：'+(CH[o.channel]||'')+' '+(o.account||''))}
+function icsOpp(o){const s=dtP(o.demoAt);if(!s)return;const e=new Date(s.getTime()+36e5);dl(new Blob(['BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//crm//EN\r\nBEGIN:VEVENT\r\nUID:'+o.id+'@crm\r\nDTSTAMP:'+dtF(new Date())+'\r\nDTSTART:'+dtF(s)+'\r\nDTEND:'+dtF(e)+'\r\nSUMMARY:Opp 展示計劃：'+o.name+'\r\nEND:VEVENT\r\nEND:VCALENDAR'],{type:'text/calendar'}),'opp.ics')}
+const stepBar=o=>{const H=o.hist||[],S=['list','invite','demo','follow'],fin=oFin(o),cur=fin?4:S.indexOf(o.stage),dt=k=>{const h=H.find(x=>hstep(x)===k);return h?(h.at||'').slice(5):''},end=[...H].reverse().find(x=>hstep(x)==='end');
+ return`<div class="steps">${OSTEP.map(([k,n],i)=>`<span class="stp2 ${i<cur?'done':i===cur?'cur':''}">${i+1} ${n}${dt(k)?`<br><small>${dt(k)}</small>`:''}</span>`).join('')}${fin?`<span class="stp2 ${o.stage==='joined'?'done':'cur'}">${o.stage==='joined'?'✓ 加入':'✕ 拒絕'}${end?`<br><small>${(end.at||'').slice(5)}</small>`:''}</span>`:''}</div>`};
+const ohist=(o,force)=>{const H=o.hist||[];return H.length?`<details data-id="oh_${o.id}" ${force||open.has('oh_'+o.id)?'open':''} style="margin-top:6px"><summary class="mut" style="cursor:pointer">過程時間線（${H.length}）</summary><div style="border-left:2px solid var(--line);margin:6px 0 0 6px;padding-left:12px">${H.map(h=>`<div class="mut" style="padding:3px 0"><span style="color:var(--gold)">●</span> ${esc(h.at)} · <b style="color:var(--ink)">${esc(h.act)}</b>${h.tm?' · 預約 '+esc(h.tm.replace('T',' ')):''}${h.n?`（${h.n} 天後）`:''}${h.note?' · '+esc(h.note):''}</div>`).join('')}</div></details>`:''};
+const onext=o=>o.stage==='list'?'發送邀約講稿':o.stage==='invite'?(needRe(o)?'需再邀約：發送再邀約講稿':`等待回覆，${o.due||''} 起列入再邀約`):o.stage==='demo'?`展示計劃：${(o.demoAt||'').replace('T',' ')||'未填時間'}`:o.stage==='follow'?`跟進：${o.due||'今天'}`:`已完成（${OST[o.stage]}）`;
+const oCard=(o,df)=>{const act=oActive(o),
+ tg=o.stage==='list'?'<span class="tag gold">未邀約</span>':o.stage==='invite'?(needRe(o)?'<span class="tag red">需再邀約</span>':`<span class="tag gold">等待回覆${o.due?' · '+Math.max(0,diff(o.due))+' 天後再邀約':''}</span>`):o.stage==='demo'?`<span class="tag ${df!=null&&df<0?'red':'gold'}">📅 ${esc((o.demoAt||'').replace('T',' ')||'未填時間')}</span>`:o.stage==='follow'?`<span class="tag ${df!=null&&df<0?'red':'gold'}">需跟進${df!=null?' · '+when(df):''}</span>`:`<span class="tag ${o.stage==='joined'?'approved':'red'}">✓ ${OST[o.stage]}</span>`,
+ qb=o.stage==='list'?'📨 一鍵邀約':needRe(o)?'📨 一鍵發送再邀約':o.stage==='follow'?'📨 一鍵發送跟進':'';
+ return`<div class="card"><div class="ch"><b>${esc(o.name)}</b><span class="tag">${CH[o.channel]||''}</span>${tg}${o.custId?'<span class="tag approved">已是顧客</span>':''}</div>${stepBar(o)}<div class="mut">${isAdmin?'填寫者 '+esc(o.ownerName)+' · ':''}${esc(o.note||'')}</div>
+ <div class="btns">${act&&qb?`<button class="pri" data-a="oquick" data-id="${o.id}">${qb}</button>`:''}${act?`<button class="${qb?'':'pri'}" data-a="ofu" data-id="${o.id}">${qb?'編輯後發送／記錄結果':'記錄結果'}</button>`:''}${o.stage==='demo'&&dtP(o.demoAt)?`<a class="btn" target="_blank" href="${calOpp(o)}">📅 加入行事曆</a><button data-a="oics" data-id="${o.id}">⬇ .ics</button>`:''}${o.stage==='joined'&&!o.custId?`<button class="pri" data-a="oconv" data-id="${o.id}">轉為顧客</button>`:''}${o.custId?`<button data-a="gocust" data-id="${o.custId}">查看顧客</button>`:''}${o.stage==='closed'?`<button data-a="oreopen" data-id="${o.id}">重新開啟</button>`:''}<button data-a="oedit" data-id="${o.id}">編輯</button><button class="dg" data-a="odel" data-id="${o.id}">刪除</button></div>${ohist(o,!act)}</div>`};
 function oForm(id){const o=id?opps.find(x=>x.id===id):{};openModal(`<h3>${id?'編輯':'新增'} Opp 對象</h3><label>姓名</label><input id="o_nm" value="${esc(o.name||'')}"><label>你對他的稱呼</label><input id="o_cn" value="${esc(o.callName||'')}"><label>聯絡管道</label><select id="o_ch">${chOpts(o.channel||'whatsapp')}</select><label>帳號 / 連結</label><input id="o_ac" value="${esc(o.account||'')}"><label>備註</label><input id="o_nt" value="${esc(o.note||'')}"><div class="btns"><button class="pri" data-a="osave" data-id="${id||''}">儲存</button><button data-a="close">取消</button></div>`)}
-function ogx(v){const o=fctx.o;$('#ogx').innerHTML=v==='ok'||v==='resched'?`<label>展示計劃時間</label><input type="datetime-local" id="o_t" value="${esc(o.demoAt||'')}">`:v==='wait'?`<label>幾天後再提醒邀約</label>${dayIn('o_n',3)}`:v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('o_n',7)}`:v==='join'?'<p class="mut">加入後可在 Opp 頁按「轉為顧客」，資料會連動到顧客名單。</p>':'<p class="mut">會結束此 Opp（之後可重新開啟）。</p>'}
-function ofu(id){const o=opps.find(x=>x.id===id),inv=o.stage==='list'||o.stage==='invite';fctx={o};
- const R=inv?[['ok','成功邀約（填展示時間）'],['wait','已發送，等待回覆'],['no','對方拒絕']]:o.stage==='demo'?[['join','已加入'],['again','需要再跟進'],['resched','改期'],['no','不加入']]:[['join','已加入'],['again','再跟進'],['no','不加入']];
- openModal(`<h3>${OST[o.stage]} · ${esc(o.name)}</h3><label>平台</label><select id="fch">${chOpts(o.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(o.account)}"><label>${inv?'邀約講稿':'跟進文案'}（可修改）</label><textarea id="fmsg" rows="5">${esc(omsg(o))}</textarea><div class="btns"><button class="pri" id="fgo">① 複製文案並前往平台</button></div><label>② 結果</label><div class="pgs">${R.map(([k,n])=>`<label class="chk"><input type="radio" name="og" value="${k}">${n}</label>`).join('')}</div><div id="ogx"></div><label>備註</label><input id="onote"><div class="btns"><button class="pri" id="odone">儲存</button></div>`);
- let sent=0;$('#fgo').onclick=()=>{goLink();if(sent)return;sent=1;const t=ymd(new Date()),c=opps.find(x=>x.id===id),U={hist:[...(c.hist||[]),{at:t,act:inv?'已發送邀約講稿':'已發送跟進文案'}]};if(c.stage==='list'){U.stage='invite';U.due=addDays(t,3)}db.collection('opps').doc(id).update(U)};
- $('#odone').onclick=async()=>{const v=document.querySelector('[name=og]:checked')?.value;if(!v)return toast('請先選擇結果');const c=opps.find(x=>x.id===id),t=ymd(new Date()),n=dayVal('o_n',v==='wait'?3:7),tm=$('#o_t')?.value||'',U={},h={at:t,act:''},nt=$('#onote').value.trim();
-  if((v==='ok'||v==='resched')&&!tm)return toast('請填寫展示計劃時間');
-  if(v==='ok'){U.stage='demo';U.demoAt=tm;h.act='成功邀約';h.tm=tm}
-  if(v==='resched'){U.demoAt=tm;h.act='展示改期';h.tm=tm}
-  if(v==='wait'){U.stage='invite';U.due=addDays(t,n);h.act='已邀約，等待回覆';h.n=n}
-  if(v==='again'){U.stage='follow';U.due=addDays(t,n);h.act='需要再跟進';h.n=n}
-  if(v==='join'){U.stage='joined';h.act='加入'}
-  if(v==='no'){U.stage='closed';h.act=inv?'對方拒絕邀約':'不加入'}
+function ogx(v){const o=fctx.o;$('#ogx').innerHTML=v==='ok'||v==='resched'?`<label>預約日期與時間</label><input type="datetime-local" id="o_t" value="${esc(o.demoAt||'')}"><p class="mut">儲存後會自動開啟 Google 行事曆加入這個預約；之後也可在卡片按「加入行事曆」。</p>`:v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('o_n',3)}`:v==='join'?'<p class="mut">會標記為已完成並保留過程時間線，之後可在卡片按「轉為顧客」。</p>':'<p class="mut">會標記為已拒絕並保留過程時間線（之後可重新開啟）。</p>'}
+async function oSent(o){const t=todayS(),U={},H=[...(o.hist||[])];
+ if(o.stage==='list'){U.stage='invite';U.invAt=t;U.due=addDays(t,3);H.push({at:t,act:'已發送邀約講稿',s:'invite'})}
+ else if(o.stage==='invite'){if(needRe(o)){U.stage='follow';U.due=addDays(t,3);H.push({at:t,act:'已發送再邀約講稿，轉入跟進',s:'follow'})}else{U.invAt=t;U.due=addDays(t,3);H.push({at:t,act:'再次發送邀約講稿',s:'invite'})}}
+ else if(o.stage==='follow'){U.due=addDays(t,3);H.push({at:t,act:'已發送跟進文案',s:'follow'})}
+ else return;
+ U.hist=H;await db.collection('opps').doc(o.id).update(U)}
+function oquick(id){const o=opps.find(x=>x.id===id);if(!o)return;const txt=omsg(o),msgT=o.stage==='list'?'已發送，已移到「邀約」':needRe(o)?'已發送，已移到「跟進」':'已記錄發送';navigator.clipboard?.writeText(txt);window.open(link(o.channel,o.account,txt),'_blank');oSent(o).then(()=>toast(msgT)).catch(x=>toast('失敗：'+x.message))}
+function ofu(id){const o=opps.find(x=>x.id===id),st=o.stage,re=needRe(o);fctx={o};
+ const R=st==='demo'?[['join','加入'],['again','需跟進'],['resched','改期'],['no','拒絕']]:st==='follow'?[['ok','成功邀約（約展示）'],['join','加入'],['again','再跟進'],['no','拒絕']]:[['ok','成功邀約（填預約時間）'],['no','對方拒絕']],sc=st!=='demo';
+ openModal(`<h3>${OST[st]} · ${esc(o.name)}</h3>${sc?`<label>平台</label><select id="fch">${chOpts(o.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(o.account)}"><label>${st==='follow'?'跟進文案':re?'再邀約講稿':'邀約講稿'}（可修改）</label><textarea id="fmsg" rows="5">${esc(omsg(o))}</textarea><div class="btns"><button class="pri" id="fgo">① 複製文案並前往平台</button></div>`:''}<label>${sc?'② ':''}結果</label><div class="pgs">${R.map(([k,n])=>`<label class="chk"><input type="radio" name="og" value="${k}">${n}</label>`).join('')}</div><div id="ogx"></div><label>備註</label><input id="onote"><div class="btns"><button class="pri" id="odone">儲存結果</button></div>`);
+ let sent=0;const g=$('#fgo');if(g)g.onclick=()=>{goLink();if(sent)return;sent=1;const c=opps.find(x=>x.id===id);if(c)oSent(c)};
+ $('#odone').onclick=async()=>{const v=document.querySelector('[name=og]:checked')?.value;if(!v)return toast('請先選擇結果');const c=opps.find(x=>x.id===id)||o,t=todayS(),n=dayVal('o_n',3),tm=$('#o_t')?.value||'',nt=($('#onote')?.value||'').trim(),U={},h={at:t,act:''};
+  if((v==='ok'||v==='resched')&&!dtP(tm))return toast('請填寫預約日期與時間');
+  if(v==='ok'){U.stage='demo';U.demoAt=tm;U.due='';h.act='成功邀約';h.s='demo';h.tm=tm}
+  if(v==='resched'){U.demoAt=tm;h.act='展示改期';h.s='demo';h.tm=tm}
+  if(v==='again'){U.stage='follow';U.due=addDays(t,n);h.act=c.stage==='demo'?'展示後需跟進':'再跟進';h.s='follow';h.n=n}
+  if(v==='join'){U.stage='joined';h.act='加入';h.s='end'}
+  if(v==='no'){U.stage='closed';h.act='拒絕';h.s='end'}
   if(nt)h.note=nt;U.hist=[...(c.hist||[]),h];
-  try{await db.collection('opps').doc(id).update(U);closeModal();toast(v==='join'?'已加入！可在 Opp 頁「轉為顧客」':'已記錄')}catch(x){toast('儲存失敗：'+x.message)}}}
-function oList(){const F={active:oActive,joined:o=>o.stage==='joined',closed:o=>o.stage==='closed',all:()=>1},k=oq.toLowerCase(),b=$('#olist');if(!b)return;
- const L=myOpps().filter(F[oppF]).filter(o=>!k||(o.name||'').toLowerCase().includes(k)).map(o=>({o,df:diff(oDate(o))})).sort((a,c)=>a.df-c.df);
- b.innerHTML=L.map(x=>oCard(x.o,x.df)).join('')||'<p class="mut" style="text-align:center">沒有資料</p>'}
-function oppView(){const L=myOpps(),F={active:oActive,joined:o=>o.stage==='joined',closed:o=>o.stage==='closed',all:()=>1};
- $('#main').innerHTML=`<div class="bar">${fsel()}<input id="oq" placeholder="搜尋姓名" value="${esc(oq)}"><button class="pri" data-a="oadd">＋ 新增 Opp</button></div><div class="bar">${[['active','進行中'],['joined','已加入'],['closed','已結束'],['all','全部']].map(([k,n])=>`<button class="${oppF===k?'pri':''}" data-a="oflt" data-k="${k}">${n}（${L.filter(F[k]).length}）</button>`).join('')}</div><div id="olist"></div>`;oList()}
+  if(v==='ok'||v==='resched'){const u=calOpp(c,tm);if(u)window.open(u,'_blank')}
+  try{await db.collection('opps').doc(id).update(U);closeModal();toast(v==='join'?'已加入！可在卡片按「轉為顧客」':'已記錄')}catch(x){toast('儲存失敗：'+x.message)}}}
+const OK=[['ol','list','未邀約名單'],['oi','invite','邀約'],['od','demo','Opp'],['of','follow','跟進']];
+function oPanel(L,sel,w){const A=L.filter(oActive),dn=L.filter(oFin),srt=(a,b)=>oDate(a).localeCompare(oDate(b)),
+ lastAt=o=>((o.hist||[]).slice(-1)[0]||{}).at||'',
+ box=([k,st,n])=>{const a=A.filter(o=>o.stage===st),b=a.filter(o=>st==='invite'?needRe(o):(st==='follow'||st==='demo')?diff(oDate(o))<=0:false).length;return`<div class="st ${sel===k?'on':''}" data-a="osel" data-k="${k}" data-w="${w}"><b>${a.length}</b>${n}${b?`<br><span class="tag red">${b} 待處理</span>`:''}</div>`};
+ let ttl,arr,emp;
+ if(sel==='ox'){ttl='已完成（加入／拒絕）';arr=dn.slice().sort((a,b)=>lastAt(b).localeCompare(lastAt(a)));emp='還沒有已完成的 Opp'}
+ else if(sel){const st=OK.find(x=>x[0]===sel)[1];ttl=OST[st];arr=A.filter(o=>o.stage===st).sort(srt);emp='這個階段目前沒有名單'}
+ else if(w==='home'){ttl='今日需處理';arr=A.filter(oDue).sort(srt);emp='今天沒有需要處理的 Opp ✨'}
+ else{ttl='全部進行中';arr=A.slice().sort(srt);emp='還沒有 Opp，按「＋ 新增 Opp」列入名單'}
+ return`<div class="stats" style="grid-template-columns:repeat(4,1fr)">${OK.map(box).join('')}</div><div class="bar"><button class="${sel==='ox'?'pri':''}" data-a="osel" data-k="ox" data-w="${w}">✓ 已完成（${dn.length}）</button></div><div class="ch"><h3 class="sec" style="margin:6px 0">${ttl}（${arr.length}）</h3><span class="sp"></span>${sel?`<button data-a="osel" data-k="${sel}" data-w="${w}">收起 ▴</button>`:''}</div>`+(arr.map(o=>oCard(o,oFin(o)?null:diff(oDate(o)))).join('')||`<div class="card" style="text-align:center;color:var(--mut)">${emp}</div>`)}
+function oList(){const b=$('#opanel');if(!b)return;const k=oq.toLowerCase();b.innerHTML=oPanel(myOpps().filter(o=>!k||(o.name||'').toLowerCase().includes(k)),oppSel,'tab')}
+function oppView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="oq" placeholder="搜尋姓名" value="${esc(oq)}"><button class="pri" data-a="oadd">＋ 新增 Opp</button></div><div id="opanel"></div>`;oList()}
+function oppDetail(oid){const o=opps.find(x=>x.id===oid);if(!o)return toast('找不到此 Opp');
+ openModal(`<h3>🤝 ${esc(o.name)}</h3><div class="mut">${CH[o.channel]||''}${isAdmin?' · 填寫者 '+esc(o.ownerName):''}</div>${stepBar(o)}<div class="mut">下一步：${esc(onext(o))}</div>${ohist(o,true)}<div class="btns"><button class="pri" data-a="goopp">前往 Opp 頁</button><button data-a="close">關閉</button></div>`)}
+function custDetail(cid){const c=custs.find(x=>x.id===cid);if(!c)return toast('找不到此顧客');const B=buysOf(c).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+ openModal(`<h3>${esc(c.d.name)} · 購買與跟進紀錄</h3><div class="mut">${CH[c.d.channel]||''} · 稱呼：${esc(c.d.callName||'')}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>`+(B.map(b=>{const d=dueOf(b),df=d?diff(d):0;return`<div class="card" style="margin:10px 0"><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}${stockOf(c).some(e=>e.buyId===b.id)?' <span class="tag gold">📦 寄存</span>':''}<div style="margin:6px 0">${b.st?`<span class="tag ${b.st==='unhappy'?'red':b.st==='rebuy'?'approved':'gold'}">${PS[b.st]}</span>`:'<span class="tag">尚未跟進</span>'}</div><div class="mut">下一步：${b.stop?'不再提醒（顧客不滿意）':b.done?'已回購，之後請看新的購買紀錄':d?`${d} 跟進 <span class="tag ${cls(df)}">${when(df)}</span>`:'—'}</div>${histHTML(b)}</div>`}).join('')||'<p class="mut">尚無購買紀錄</p>')+`<div class="btns"><button class="pri" data-a="gocust" data-id="${c.id}">前往顧客頁</button><button data-a="close">關閉</button></div>`)}
 
 /* ---------- 寄存 ---------- */
 const stockOf=c=>c.stock||[],skey=e=>e.pid||e.name,lim3=()=>addDays(ymd(new Date()),-1095);
@@ -227,13 +265,13 @@ function stockList(){const b=$('#slist');if(!b)return;const L=myList(),k=stkQ.to
  T={prod:['寄存產品',prodH(P.slice().sort((a,z)=>a.name.localeCompare(z.name,'zh-Hant')))],tot:['存貨數量（多 → 少）',prodH(P.slice().sort((a,z)=>z.tot-a.tot))],cust:['寄存中的顧客',custH],in:['本月寄存',mEV('in').map(card).join('')||'<p class="mut" style="text-align:center">本月沒有寄存紀錄</p>'],out:['本月交貨',mEV('out').map(card).join('')||'<p class="mut" style="text-align:center">本月沒有交貨紀錄</p>']},sel=T[stkSel];
  b.innerHTML=`<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(88px,1fr))">${box('prod',P.length,'寄存產品種類')}${box('tot',P.reduce((t,x)=>t+x.tot,0),'存貨總數量')}${box('cust',CU.length,'寄存顧客')}${box('in',mEV('in').length,'本月寄存')}${box('out',mEV('out').length,'本月交貨')}</div>`
  +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}</h3><span class="sp"></span><button data-a="ssel" data-k="${stkSel}">收起 ▴</button></div>`+sel[1]
-  :prodH(P.slice().sort((a,z)=>z.tot-a.tot))+`<h3 class="sec">購買 / 寄存 / 交貨紀錄（近 3 年）</h3>`+(EV.slice(0,300).map(card).join('')||'<p class="mut" style="text-align:center">沒有紀錄</p>'))}
+  :prodH(P.slice().sort((a,z)=>z.tot-a.tot))+`<details class="card" data-id="st_ledger" ${open.has('st_ledger')?'open':''}><summary style="cursor:pointer"><b>購買 / 寄存 / 交貨紀錄（近 3 年 · ${EV.length} 筆，點擊展開）</b></summary><div style="margin-top:10px">`+(EV.slice(0,300).map(card).join('')||'<p class="mut" style="text-align:center">沒有紀錄</p>')+'</div></details>')}
 function stockView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="stq" placeholder="搜尋產品 / 顧客" value="${esc(stkQ)}"><button class="pri" data-a="sin" data-id="">＋ 新增寄存</button></div><div id="slist"></div>`;stockList()}
 
 /* ---------- 跟進進度 ---------- */
 const stColorCode=c=>c==='unhappy'?'C0483F':c==='rebuy'?'2F8F6A':'8A6A22',rowCol=x=>x.b?stCol(x.b):stColorCode(x.stc),tagc=c=>c==='unhappy'?'red':c==='rebuy'?'approved':'gold';
-function progRows(m){const r=[];myList().forEach(c=>buysOf(c).forEach(b=>(b.hist||[]).forEach(h=>{if((h.at||'').slice(0,7)!==m)return;r.push({date:h.at,kind:'顧客',name:c.d.name,what:`${b.name} ×${b.qty}（${h.prev||b.date||''} 購買）`,st:HS[h.st]||'',stc:h.st,next:h.st==='rebuy'?`再購買 ${h.buy||''}`+(h.n?`，${h.n} 天後跟進`:''):h.n?`${addDays(h.at,h.n)}（${h.n} 天後）`:'—',note:h.note||'',owner:c.ownerName})})));
- myOpps().forEach(o=>(o.hist||[]).forEach(h=>{if((h.at||'').slice(0,7)!==m)return;r.push({date:h.at,kind:'Opp',name:o.name,what:'階段：'+(OST[o.stage]||''),st:h.act,stc:'opp',next:h.tm?'展示 '+h.tm.replace('T',' '):h.n?`${addDays(h.at,h.n)}（${h.n} 天後）`:'—',note:h.note||'',owner:o.ownerName})}));
+function progRows(m){const r=[];myList().forEach(c=>buysOf(c).forEach(b=>(b.hist||[]).forEach(h=>{if((h.at||'').slice(0,7)!==m)return;r.push({date:h.at,kind:'顧客',name:c.d.name,what:`${b.name} ×${b.qty}（${h.prev||b.date||''} 購買）`,st:HS[h.st]||'',stc:h.st,next:h.st==='rebuy'?`再購買 ${h.buy||''}`+(h.n?`，${h.n} 天後跟進`:''):h.n?`${addDays(h.at,h.n)}（${h.n} 天後）`:'—',note:h.note||'',owner:c.ownerName,cid:c.id})})));
+ myOpps().forEach(o=>(o.hist||[]).forEach(h=>{if((h.at||'').slice(0,7)!==m)return;r.push({date:h.at,kind:'Opp',name:o.name,what:'階段：'+(OST[o.stage]||''),st:h.act,stc:'opp',next:h.tm?'展示 '+h.tm.replace('T',' '):h.n?`${addDays(h.at,h.n)}（${h.n} 天後）`:'—',note:h.note||'',owner:o.ownerName,oid:o.id})}));
  return r.sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name,'zh-Hant')).map((x,i)=>({...x,gi:i,i:0}))}
 const progCols=()=>{const C=[{h:'日期',v:x=>x.date},{h:'類別',v:x=>x.kind},{h:'對象',v:x=>x.name},{h:'購買產品 / 階段',v:x=>x.what},{h:'跟進進度',v:x=>x.st},{h:'下一步',v:x=>x.next},{h:'備註',v:x=>x.note}];if(isAdmin)C.unshift({h:'填寫者',v:x=>x.owner});return C};
 const exCfg=()=>exSrc==='prog'?(()=>{const m=progM||curMonth(),r=progRows(m);return{rows:r,C:progCols(),title:`${m} 跟進進度報表`,file:`跟進進度_${m}`,T:r=>`共 ${r.length} 筆紀錄`}})():{rows:rowsX(),C:cols(),title:'顧客跟進報表',file:'顧客跟進',T:totalT};
@@ -241,25 +279,28 @@ function progView(){const m=progM||(progM=curMonth()),A=progRows(m),cnt={};A.for
  const R=progSel?A.filter(x=>x.stc===progSel):A,LB={...HS,opp:'Opp 動態'},box=(k,n,l)=>`<div class="st ${progSel===k?'on':''}" data-a="prsel" data-k="${k}"><b>${n}</b>${l}</div>`;
  $('#main').innerHTML=`<div class="bar">${fsel()}<input type="month" id="pm" value="${m}"></div><div class="bar"><button data-a="xls" data-s="prog">📊 匯出 Excel</button><button data-a="pdf" data-s="prog">📄 匯出 PDF</button><button data-a="jpg" data-s="prog">🖼 匯出 JPG</button></div><div class="stats" style="grid-template-columns:repeat(4,1fr)">${box('',A.length,'全部')}${Object.entries(LB).map(([k,n])=>box(k,cnt[k]||0,n)).join('')}</div>`
  +(progSel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${LB[progSel]}（${R.length}）</h3><span class="sp"></span><button data-a="prsel" data-k="${progSel}">收起 ▴</button></div>`:'')
- +(R.length?R.slice().reverse().map(x=>`<div class="card"><div class="ch"><b>${esc(x.name)}</b><span class="tag ${x.kind==='Opp'?'gold':''}">${x.kind}</span><span class="tag ${tagc(x.stc)}">${esc(x.st)}</span><span class="sp"></span><span class="mut">${x.date}</span></div><div class="mut">${esc(x.what)}${isAdmin?' · '+esc(x.owner):''}</div><div class="mut">下一步：${esc(x.next)}${x.note?' · 備註：'+esc(x.note):''}</div></div>`).join(''):'<p class="mut" style="text-align:center">這個月份沒有跟進紀錄</p>')}
+ +(R.length?R.slice().reverse().map(x=>`<div class="card" data-a="prdet" data-id="${x.cid||x.oid}" data-k="${x.kind}" style="cursor:pointer"><div class="ch"><b>${esc(x.name)}</b><span class="tag ${x.kind==='Opp'?'gold':''}">${x.kind}</span><span class="tag ${tagc(x.stc)}">${esc(x.st)}</span><span class="sp"></span><span class="mut">${x.date}</span></div><div class="mut">${esc(x.what)}${isAdmin?' · '+esc(x.owner):''}</div><div class="mut">下一步：${esc(x.next)}${x.note?' · 備註：'+esc(x.note):''}</div><div class="mut" style="text-align:right">查看${x.kind==='Opp'?'過程時間線':'購買紀錄與下一步'} ›</div></div>`).join(''):'<p class="mut" style="text-align:center">這個月份沒有跟進紀錄</p>')}
 
-let homeSel='';
+let homeSel='all';
 const doneToday=(L=myList())=>{const t=ymd(new Date());return L.flatMap(c=>[...buysOf(c).filter(b=>b.at===t).map(b=>({c,t:`${b.name} · ${PS[b.st]||''}`})),...fields.filter(f=>f.remOn&&(c.fAt||{})[f.id]===t).map(f=>({c,t:f.label+' 已發送'}))]).concat(promos.filter(p=>p.month===curMonth()).flatMap(p=>L.filter(c=>(c.promoSent||{})[p.id]===t).map(c=>({c,t:'🎁 '+p.title+' 已發送'}))))};
-function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),O=oRems(),OL=myOpps().filter(o=>o.stage==='list'),A=[...R,...F,...O,...P.map(x=>({...x,df:0,promo:1}))].sort((a,b)=>a.df-b.df),D=[...doneToday(L),...oDone()],
- todo=A.filter(x=>x.df<=0),over=A.filter(x=>x.df<0),tod=A.filter(x=>x.df===0),soon=A.filter(x=>x.df>0),
+function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),D=doneToday(L),
+ A=[...R,...F,...P.map(x=>({...x,df:0,promo:1}))].sort((a,b)=>a.df-b.df),
+ todo=A.filter(x=>x.df<=0),over=A.filter(x=>x.df<0),soon=A.filter(x=>x.df>0),total=todo.length+D.length,pct=total?Math.round(D.length/total*100):100,
+ nx=L.flatMap(dues).filter(r=>diff(r.date)>0).sort((a,b)=>a.date.localeCompare(b.date))[0],
  box=(k,n,l,c)=>`<div class="st ${homeSel===k?'on':''}" data-a="hsel" data-k="${k}"><b class="${c||''}">${n}</b>${l}</div>`,
- card=x=>x.opp?oCard(x.o,x.df):x.promo?prCard(x):x.f?fCard(x):remCard(x),
+ card=x=>x.promo?prCard(x):x.f?fCard(x):remCard(x),
  empty=m=>`<div class="card" style="text-align:center;color:var(--mut)">${m}</div>`,
  doneCard=x=>`<div class="card" style="opacity:.75"><div class="ch"><span class="tag approved">✓ 已完成</span><b>${esc(x.c.d.name)}</b><span class="mut">${esc(x.t)}</span></div></div>`,
  custRow=c=>{const n=nextOf(c);return`<div class="card"><div class="ch" data-a="gocust" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}<span class="sp"></span><span class="mut">${n?'下次跟進 '+n:'暫無待跟進'} ›</span></div></div>`},
- T={all:['今日應跟進',todo.map(card).join('')+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',todo.map(card).join(''),'今天的跟進都完成了 🎉'],over:['已逾期',over.map(card).join(''),'沒有逾期項目 👍'],tod:['今天需跟進',tod.map(card).join(''),'今天沒有項目'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],opp:['Opp 待邀約名單',OL.map(o=>oCard(o,null)).join(''),'沒有待邀約的對象，到 Opp 頁新增'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
- sel=T[homeSel];
- $('#main').innerHTML=(isAdmin?`<div class="bar">${fsel()}</div>`:'')+`<div class="stats">${box('all',todo.length+D.length,'今日應跟進')}${box('todo',todo.length,'未完成','red')}${box('over',over.length,'逾期','red')}${box('tod',tod.length,'今天','gold')}${box('soon',soon.length,'即將到期')}${box('cust',L.length,'顧客總數')}${box('opp',OL.length,'Opp 待邀約','gold')}</div>`
- +(isAdmin&&filterUid==='all'?monCard():'')
+ bm=fieldSec([],BM),
+ T={all:['今日應跟進（含促銷、生日）',todo.map(card).join('')+bm+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',todo.map(card).join('')+bm,'今天的跟進都完成了 🎉'],over:['已逾期',over.map(card).join(''),'沒有逾期項目 👍'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
+ sel=T[homeSel],
+ sum=`<div class="card"><div class="ch"><b>今日進度</b><span class="sp"></span><span class="mut">${total?`${D.length} / ${total} 已完成`:'今天沒有待辦'}</span></div><div style="height:8px;border-radius:99px;background:var(--line);margin:8px 0;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--grn)"></div></div><div class="mut">${todo.length?`還有 ${todo.length} 項未完成`+(over.length?`（其中 ${over.length} 項已逾期）`:''):'🎉 今天的跟進都完成了'}${nx?` · 下一個跟進：${esc(nx.c.d.name)}${nx.b?' '+esc(nx.b.name):''}（${nx.date}，${when(diff(nx.date))}）`:''}</div></div>`;
+ $('#main').innerHTML=(isAdmin?`<div class="bar">${fsel()}</div>`:'')+(isAdmin&&filterUid==='all'?monCard():'')
  +(('Notification' in window&&Notification.permission==='default')?`<div class="card">🔔 <button class="pri" data-a="notif">開啟瀏覽器提醒</button></div>`:'')
- +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:homeSel==='opp'?OL.length:A.filter(x=>({todo:x.df<=0,over:x.df<0,tod:x.df===0,soon:x.df>0})[homeSel]).length}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2]))+fieldSec([],BM)
-  :(R.length||O.length?R.map(remCard).join('')+O.map(x=>oCard(x.o,x.df)).join(''):empty('目前沒有需要跟進的顧客 ✨'))+fieldSec(F,BM))
- +(P.length&&(!sel||!['all','todo','tod'].includes(homeSel))?`<h3 class="sec">🎁 本月促銷可發送（${P.length}）</h3>`+P.map(prCard).join(''):'')}
+ +`<div class="two"><section class="col"><div class="colh">👥 顧客跟進進度</div>${sum}<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(76px,1fr))">${box('all',total,'今日應跟進')}${box('todo',todo.length,'未完成','red')}${box('over',over.length,'逾期','red')}${box('soon',soon.length,'即將到期')}${box('cust',L.length,'顧客總數')}</div>`
+ +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:({todo:todo.length,over:over.length,soon:soon.length})[homeSel]}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2])):'<div class="mut" style="text-align:center;padding:6px">點上方數字查看明細</div>')
+ +`</section><section class="col"><div class="colh o">🤝 Opp 進度（邀約流程）</div>${oPanel(myOpps(),homeOSel,'home')}</section></div>`}
 
 /* ---------- 顧客頁（逐筆購買） ---------- */
 const nextOf=c=>buysOf(c).map(dueOf).filter(Boolean).sort()[0]||'';
@@ -284,7 +325,7 @@ function drawList(){const L=list(),due=new Set(rems(custs).map(r=>r.c.id));
 const dayIn=(id,v)=>`<div class="stp"><button type="button" data-a="dstep" data-t="${id}" data-s="-1">−</button><input id="${id}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${v}"><button type="button" data-a="dstep" data-t="${id}" data-s="1">＋</button><span class="mut">天</span></div><div class="qk">${[7,14,30,60,90].map(n=>`<button type="button" data-a="dset" data-t="${id}" data-s="${n}">${n}</button>`).join('')}</div>`;
 const dayVal=(id,def)=>Math.max(1,parseInt($('#'+id)?.value)||def);
 function pgx(v){const b=fctx.b;$('#pgx').innerHTML=v==='rebuy'?`<label>再購買日期</label><input type="date" id="x_d" value="${ymd(new Date())}"><label>數量</label><input id="x_q" type="text" inputmode="numeric" value="${b.qty}"><label>幾天後再跟進（可自行修改）</label>${dayIn('x_n',cycleOf(b)||30)}`
- :v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('x_n',7)}`:v==='noreply'?`<label>幾天後再提醒跟進（預設 30 天，可修改）</label>${dayIn('x_n',30)}`:'<p class="mut">這項產品之後不再提醒跟進。</p>'}
+ :v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('x_n',7)}`:v==='noreply'?`<label>幾天後再提醒跟進（預設 7 天，可修改）</label>${dayIn('x_n',7)}`:'<p class="mut">這項產品之後不再提醒跟進。</p>'}
 const goLink=()=>{const t=$('#fmsg').value;navigator.clipboard?.writeText(t);window.open(link($('#fch').value,$('#fac').value,t),'_blank')};
 function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x=>x.id===bid):null;fctx={c,b};
  openModal(`<h3>跟進 ${esc(c.d.name)}</h3>${b?`<div class="mut">${esc(b.date)} 購買 · ${esc(b.name)} ×${b.qty}</div>`:''}<label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>跟進文案（可直接修改）</label><textarea id="fmsg" rows="5">${esc(msg(c,kind,b))}</textarea>
@@ -294,7 +335,7 @@ function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x
  $('#fdone').onclick=async()=>{const t=ymd(new Date());
   if(kind==='renew'){await db.collection('customers').doc(id).update({'d.member.join':t});closeModal();return toast('已記錄')}
   const v=document.querySelector('[name=pg]:checked')?.value;if(!v)return toast('請先選擇跟進進度');
-  const n=dayVal('x_n',v==='noreply'?30:7),B=buysOf(custs.find(x=>x.id===id)||c).map(x=>({...x})),o=B.find(x=>x.id===b.id);
+  const n=dayVal('x_n',7),B=buysOf(custs.find(x=>x.id===id)||c).map(x=>({...x})),o=B.find(x=>x.id===b.id);
   const h={at:t,st:v};const nt=($('#fnote')?.value||'').trim();if(nt)h.note=nt;o.st=v;o.at=t;o.stop=v==='unhappy'?1:0;o.done=0;
   if(v==='again'||v==='noreply'){o.due=addDays(t,n);h.n=n}
   if(v==='rebuy'){const dt=$('#x_d').value||t,q=Math.max(1,parseInt($('#x_q').value)||1);h.prev=o.date;h.buy=dt;h.n=n;o.date=dt;o.qty=q;o.due=addDays(dt,n)}
@@ -358,7 +399,7 @@ function bulk(text){let c=0;for(const line of text.split('\n')){const t=line.tri
 
 /* ---------- 管理員：系統設定 ---------- */
 function setView(){$('#main').innerHTML=`<div class="card"><h3>系統設定</h3><label>產品跟進：到期前幾天開始提醒</label><input id="s_ahead" type="number" value="${cfg.ahead}"><label>會員續約週期（天）</label><input id="s_rd" type="number" value="${cfg.renewDays}"><label>續約：到期前幾天開始提醒</label><input id="s_ra" type="number" value="${cfg.renewAhead}">
- <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea><label>Opp 邀約講稿</label><textarea id="s_ti" rows="4">${esc(cfg.tplInvite)}</textarea><label>Opp 展示後跟進文案</label><textarea id="s_to" rows="4">${esc(cfg.tplOppFu)}</textarea>${fields.filter(f=>f.on&&f.tplOn).map(f=>`<label>${esc(f.label)}文案（預設）</label><textarea id="s_f_${f.id}" rows="4">${esc(f.tpl||'')}</textarea>`).join('')}<div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
+ <label>產品跟進文案（可用 {稱呼} {顧客} {產品} {下線}）</label><textarea id="s_tpl" rows="4">${esc(cfg.tpl)}</textarea><label>續約文案</label><textarea id="s_tr" rows="4">${esc(cfg.tplRenew)}</textarea><label>Opp 邀約講稿</label><textarea id="s_ti" rows="4">${esc(cfg.tplInvite)}</textarea><label>Opp 展示後跟進文案</label><textarea id="s_to" rows="4">${esc(cfg.tplOppFu)}</textarea><label>Opp 再跟進邀約講稿（邀約後 3 天沒更新時使用）</label><textarea id="s_tri" rows="4">${esc(cfg.tplReinvite)}</textarea><label>顧客沒回覆再跟進文案</label><textarea id="s_tnr" rows="4">${esc(cfg.tplNoReply)}</textarea>${fields.filter(f=>f.on&&f.tplOn).map(f=>`<label>${esc(f.label)}文案（預設）</label><textarea id="s_f_${f.id}" rows="4">${esc(f.tpl||'')}</textarea>`).join('')}<div class="btns"><button class="pri" data-a="sset">儲存</button></div></div>`}
 
 /* ---------- 我的文案 ---------- */
 function tplView(){const TF=fields.filter(f=>f.on&&f.tplOn);$('#main').innerHTML=`<div class="card"><h3>我的跟進文案</h3><p class="mut">只套用在你自己的顧客跟進。可用 {稱呼} {顧客} {產品} {下線}（欄位文案另可用 {欄位} {值}）。留空儲存＝使用管理員預設文案。</p>
@@ -366,6 +407,8 @@ function tplView(){const TF=fields.filter(f=>f.on&&f.tplOn);$('#main').innerHTML
  <label>會員續約文案</label><textarea id="t_b" rows="5" placeholder="${esc(cfg.tplRenew)}">${esc(me.tplRenew||'')}</textarea>
  <label>Opp 邀約講稿</label><textarea id="t_i" rows="5" placeholder="${esc(cfg.tplInvite)}">${esc(me.tplInvite||'')}</textarea>
  <label>Opp 展示後跟進文案</label><textarea id="t_o" rows="5" placeholder="${esc(cfg.tplOppFu)}">${esc(me.tplOppFu||'')}</textarea>
+ <label>Opp 再跟進邀約講稿（邀約後 3 天沒更新時使用）</label><textarea id="t_ri" rows="5" placeholder="${esc(cfg.tplReinvite)}">${esc(me.tplReinvite||'')}</textarea>
+ <label>顧客沒回覆再跟進文案</label><textarea id="t_nr" rows="5" placeholder="${esc(cfg.tplNoReply)}">${esc(me.tplNoReply||'')}</textarea>
  ${TF.map(f=>`<label>${esc(f.label)}文案</label><textarea id="t_f_${f.id}" rows="4" placeholder="${esc(f.tpl||'')}">${esc((me.ftpl||{})[f.id]||'')}</textarea>`).join('')}
  <div class="btns"><button class="pri" data-a="tsave">儲存</button><button data-a="treset">恢復預設</button></div></div>`}
 /* ---------- 促銷（管理員） ---------- */
@@ -437,7 +480,13 @@ document.addEventListener('click',async e=>{
  if(a==='soutsave'){const c=custs.find(x=>x.id===id),k=$('#k_k').value,q=parseInt($('#k_q').value)||0,r=bal(c).find(x=>x.k===k);if(!r||q<1||q>r.qty)return toast('交貨數量需在 1 ～ '+(r?r.qty:0)+' 之間');const ref=stockOf(c).find(e=>skey(e)===k);
   try{await db.collection('customers').doc(id).update({stock:[...stockOf(c),{id:uid(),date:$('#k_d').value||ymd(new Date()),pid:ref.pid||'',name:ref.name,qty:q,type:'out',note:$('#k_n').value.trim(),at:Date.now()}]});closeModal();toast('已記錄交貨')}catch(x){toast('失敗：'+x.message)}return}
  if(a==='hsel'){homeSel=homeSel===t.dataset.k?'':t.dataset.k;return draw()}
- if(a==='gocust'){cOpen.set(id,true);tab='cust';return draw()}
+ if(a==='osel'){const w=t.dataset.w,k=t.dataset.k;if(w==='home')homeOSel=homeOSel===k?'':k;else oppSel=oppSel===k?'':k;return draw()}
+ if(a==='oquick')return oquick(id);
+ if(a==='oics'){const o=opps.find(x=>x.id===id);if(o)icsOpp(o);return}
+ if(a==='goopp'){closeModal();tab='opp';return draw()}
+ if(a==='prdet')return t.dataset.k==='Opp'?oppDetail(id):custDetail(id);
+ if(a==='bquick'){const c=custs.find(x=>x.id===id),b=c&&buysOf(c).find(x=>x.id===t.dataset.b);if(!b)return;const txt=msg(c,'follow',b);navigator.clipboard?.writeText(txt);window.open(link(c.d.channel,c.d.account,txt),'_blank');const B=buysOf(c).map(x=>({...x})),o=B.find(x=>x.id===b.id);o.hist=[...(o.hist||[]),{at:ymd(new Date()),st:'sent'}];db.collection('customers').doc(id).update({buys:B}).then(()=>toast('已發送，記得稍後記錄進度')).catch(x=>toast('失敗：'+x.message));return}
+ if(a==='gocust'){closeModal();cOpen.set(id,true);tab='cust';return draw()}
  if(a==='theme'){const n=curTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('theme',n)}catch(e){}t.textContent=n==='dark'?'☀':'🌙';return}
  if(a==='close')return closeModal();
  if(a==='notif'){await Notification.requestPermission();return draw()}
@@ -460,9 +509,9 @@ document.addEventListener('click',async e=>{
  if(a==='fquick'||a==='fedit'||a==='fskip'){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===t.dataset.f);if(!c||!f)return;const o=occOf(f,c.d[f.id]),mark=()=>db.collection('customers').doc(id).update({['fSent.'+f.id]:o,['fAt.'+f.id]:ymd(new Date())});
   if(a==='fskip'){mark();return}if(a==='fedit')return ffu(id,f.id);
   const txt=fmsg(c,f);navigator.clipboard?.writeText(txt);window.open(link(c.d.channel,c.d.account,txt),'_blank');mark();return}
- if(a==='tsave'||a==='treset'){const D=firebase.firestore.FieldValue.delete(),R=a==='treset',g=id=>R?'':($('#'+id)?.value||'').trim(),A=g('t_a'),B=g('t_b'),I=g('t_i'),O=g('t_o'),U={tpl:A||D,tplRenew:B||D,tplInvite:I||D,tplOppFu:O||D};me.ftpl=me.ftpl||{};
+ if(a==='tsave'||a==='treset'){const D=firebase.firestore.FieldValue.delete(),R=a==='treset',g=id=>R?'':($('#'+id)?.value||'').trim(),A=g('t_a'),B=g('t_b'),I=g('t_i'),O=g('t_o'),RI=g('t_ri'),NR=g('t_nr'),U={tpl:A||D,tplRenew:B||D,tplInvite:I||D,tplOppFu:O||D,tplReinvite:RI||D,tplNoReply:NR||D};me.ftpl=me.ftpl||{};
   fields.filter(f=>f.on&&f.tplOn).forEach(f=>{const v=g('t_f_'+f.id);U['ftpl.'+f.id]=v||D;me.ftpl[f.id]=v});
-  try{await db.collection('users').doc(me.uid).update(U);me.tpl=A;me.tplRenew=B;me.tplInvite=I;me.tplOppFu=O;toast(R?'已恢復預設':'已儲存');tplView()}catch(x){toast(x.code==='permission-denied'?'權限不足：請更新 Firestore 規則':'失敗：'+x.message)}return}
+  try{await db.collection('users').doc(me.uid).update(U);me.tpl=A;me.tplRenew=B;me.tplInvite=I;me.tplOppFu=O;me.tplReinvite=RI;me.tplNoReply=NR;toast(R?'已恢復預設':'已儲存');tplView()}catch(x){toast(x.code==='permission-denied'?'權限不足：請更新 Firestore 規則':'失敗：'+x.message)}return}
  if(a==='uph'){const u=users.find(x=>x.id===id),v=await ask('WhatsApp 號碼（含國碼）',u.phone||'');if(v)db.collection('users').doc(id).update({phone:v.replace(/\D/g,'')});return}
  if(a==='new')return cform();if(a==='ed')return cform(id);
  if(a==='rm'){if(confirm('確定刪除這位顧客？'))db.collection('customers').doc(id).delete();return}
@@ -481,7 +530,7 @@ document.addEventListener('click',async e=>{
  if(a==='ren'){const n=NM.get(id),v=await ask('新名稱',n.name);if(v){n.name=v;saveCat();catView()}return}
  if(a==='del'){if(confirm('刪除後其下所有項目也會一併刪除，確定？')){rmNode(id);saveCat();catView()}return}
  if(a==='bulk'){const c=bulk($('#bulk').value);saveCat();toast(`已新增 ${c} 個項目`);return catView()}
- if(a==='sset'){cfg={ahead:+$('#s_ahead').value||3,renewDays:+$('#s_rd').value||365,renewAhead:+$('#s_ra').value||30,tpl:$('#s_tpl').value,tplRenew:$('#s_tr').value,tplInvite:$('#s_ti').value,tplOppFu:$('#s_to').value};fields.filter(f=>f.tplOn).forEach(f=>{const e=$('#s_f_'+f.id);if(e)f.tpl=e.value});Promise.all([db.collection('config').doc('settings').set(cfg),db.collection('config').doc('fields').set({list:fields,bday:1})]).then(()=>toast('已儲存')).catch(x=>toast('失敗：'+x.message))}
+ if(a==='sset'){cfg={ahead:+$('#s_ahead').value||3,renewDays:+$('#s_rd').value||365,renewAhead:+$('#s_ra').value||30,tpl:$('#s_tpl').value,tplRenew:$('#s_tr').value,tplInvite:$('#s_ti').value,tplOppFu:$('#s_to').value,tplReinvite:$('#s_tri').value,tplNoReply:$('#s_tnr').value};fields.filter(f=>f.tplOn).forEach(f=>{const e=$('#s_f_'+f.id);if(e)f.tpl=e.value});Promise.all([db.collection('config').doc('settings').set(cfg),db.collection('config').doc('fields').set({list:fields,bday:1})]).then(()=>toast('已儲存')).catch(x=>toast('失敗：'+x.message))}
 });
 document.addEventListener('toggle',e=>{const id=e.target.dataset?.id;if(id&&e.target.tagName==='DETAILS')e.target.open?open.add(id):open.delete(id)},true);
 document.addEventListener('input',e=>{const t=e.target;
