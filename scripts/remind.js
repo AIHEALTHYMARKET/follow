@@ -84,7 +84,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     if (g.stk.length) body += `<p><b>📦 目前寄存中（每月1號彙整）</b><br>${g.stk.map(esc).join('<br>')}</p>`;
     if (promos.length) body += `<p>🎁 新促銷：${promos.map(esc).join('、')}，可到系統「提醒」頁發送給顧客。</p>`;
     const html = `<div style="font-family:'Noto Sans TC',sans-serif;max-width:560px;margin:auto;background:#f6f2ea;padding:24px"><div style="background:#1b2236;color:#e6d3a3;padding:16px 20px;border-radius:12px 12px 0 0;font-size:18px">◆ 顧客跟進提醒</div><div style="background:#fff;padding:20px;border-radius:0 0 12px 12px">${body}<p style="text-align:center;margin-top:22px"><a href="${esc(process.env.SITE_URL)}" style="background:#b08d4a;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none">進入系統跟進</a></p></div></div>`;
-    await tr.sendMail({ from: `顧客跟進系統 <${process.env.GMAIL_USER}>`, to: u.email, subject: `【跟進提醒】${g.bd.length ? '本月生日顧客＋' : ''}今天有 ${g.rows.length} 項需要處理`, html });
+    await tr.sendMail({ from: `Unfinished跟進系統 <${process.env.GMAIL_USER}>`, to: u.email, subject: `【跟進提醒】${g.bd.length ? '本月生日顧客＋' : ''}今天有 ${g.rows.length} 項需要處理`, html });
     sent++;
   }
   for (const p of newPromos) await p.ref.update({ emailed: true });
