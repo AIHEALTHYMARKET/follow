@@ -28,10 +28,11 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   const pMatch = (p, c) => { const a = new Set(p.cats || []), b = new Set(p.prods || []), all = !a.size && !b.size; return buysOf(c).some(x => !x.stop && (all || b.has(x.pid) || underCat(x.pid, a))); };
   const occOf = (f, v) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(v || '')) return null; if (!f.yearly) return v; const y = +today.slice(0, 4), a = y + v.slice(4); return diff(a) >= -3 ? a : (y + 1) + v.slice(4); };
 
+  const curPromos = pr.docs.filter(d => d.data().month === today.slice(0, 7));
   const newPromos = pr.docs.filter(d => !d.data().emailed && d.data().month === today.slice(0, 7));
   const mo = today.slice(5, 7), first = today.slice(8) === '01';
   const per = new Map();
-  const get = u => per.get(u) || per.set(u, { rows: [], bd: [], promo: [], stk: [] }).get(u);
+  const get = u => per.get(u) || per.set(u, { rows: [], bd: [], promo: [], stk: [], pp: {} }).get(u);
 
   for (const doc of cs.docs) {
     const c = doc.data(), d = c.d || {}, u = c.ownerUid;
@@ -41,7 +42,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
       if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `產品跟進：${b.name}（${b.date || ''} 購買）`, df });
     }
     if (d.member && d.member.is && d.member.join) {
-      const date = addDays(d.member.join, +cfg.renewDays), df = diff(date);
+      let date = addDays(d.member.join, +cfg.renewDays); if (c.renewSkip && c.renewSkip > date) date = c.renewSkip; const df = diff(date);
       if (df <= cfg.renewAhead) get(u).rows.push({ n: d.name, t: '會員續約', df });
     }
     for (const f of F) {
@@ -53,16 +54,19 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     }
     if (first) {
       const m = new Map();
-      for (const e of c.stock || []) { const k = e.pid || e.name, r = m.get(k) || { name: e.name, q: 0 }; r.q += e.type === 'out' ? -e.qty : e.qty; m.set(k, r); }
+      const bids = new Set(buysOf(c).map(b => b.id));
+      for (const e of (c.stock || []).filter(e => !e.buyId || bids.has(e.buyId))) { const k = e.pid || e.name, r = m.get(k) || { name: e.name, q: 0 }; r.q += e.type === 'out' ? -e.qty : e.qty; m.set(k, r); }
       const L = [...m.values()].filter(r => r.q > 0).map(r => `${r.name}×${r.q}`);
       if (L.length) get(u).stk.push(`${d.name}：${L.join('、')}`);
     }
     for (const p of newPromos) if (pMatch(p.data(), c) && !(c.promoSent || {})[p.id]) get(u).promo.push(p.data().title);
+    for (const p of curPromos) if (pMatch(p.data(), c) && !(c.promoSent || {})[p.id] && !((c.promoSkip || {})[p.id] > today)) { const g = get(u), k = p.data().title; g.pp[k] = (g.pp[k] || 0) + 1; }
   }
 
   for (const doc of os.docs) {
     const o = doc.data(), u = o.ownerUid;
     if (!users.has(u)) continue;
+    if (o.skipTo && o.skipTo > today) continue;
     if (o.stage === 'list') get(u).rows.push({ n: o.name, t: '🤝 Opp 待邀約', df: 0 });
     else if (o.stage === 'demo') { const dt = (o.demoAt || '').slice(0, 10); if (dt && diff(dt) <= cfg.ahead) get(u).rows.push({ n: o.name, t: `🤝 展示計劃 ${(o.demoAt || '').replace('T', ' ')}`, df: diff(dt) }); }
     else if (o.stage === 'invite' || o.stage === 'follow') { if (o.due && diff(o.due) <= 0) get(u).rows.push({ n: o.name, t: `🤝 Opp ${o.stage === 'invite' ? '需再邀約（可一鍵發送再邀約講稿）' : '需跟進'}`, df: diff(o.due) }); }
@@ -82,6 +86,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     }
     if (g.rows.length) body += `<p>今天有 <b>${g.rows.length}</b> 項需要跟進：</p><table style="width:100%;border-collapse:collapse;font-size:14px">${g.rows.map(r => `<tr><td style="${td}"><b>${esc(r.n)}</b></td><td style="${td}">${esc(r.t)}</td><td style="${td};color:${r.df < 0 ? '#c0483f' : '#8a6a22'}">${when(r.df)}</td></tr>`).join('')}</table>`;
     if (g.stk.length) body += `<p><b>📦 目前寄存中（每月1號彙整）</b><br>${g.stk.map(esc).join('<br>')}</p>`;
+    if (Object.keys(g.pp).length) body += `<p>🎁 本月促銷尚未發送：${Object.entries(g.pp).map(([k, v]) => `${esc(k)}（${v} 位顧客）`).join('、')}</p>`;
     if (promos.length) body += `<p>🎁 新促銷：${promos.map(esc).join('、')}，可到系統「提醒」頁發送給顧客。</p>`;
     const html = `<div style="font-family:'Noto Sans TC',sans-serif;max-width:560px;margin:auto;background:#f6f2ea;padding:24px"><div style="background:#1b2236;color:#e6d3a3;padding:16px 20px;border-radius:12px 12px 0 0;font-size:18px">◆ 顧客跟進提醒</div><div style="background:#fff;padding:20px;border-radius:0 0 12px 12px">${body}<p style="text-align:center;margin-top:22px"><a href="${esc(process.env.SITE_URL)}" style="background:#b08d4a;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none">進入系統跟進</a></p></div></div>`;
     await tr.sendMail({ from: `Unfinished跟進系統 <${process.env.GMAIL_USER}>`, to: u.email, subject: `【跟進提醒】${g.bd.length ? '本月生日顧客＋' : ''}今天有 ${g.rows.length} 項需要處理`, html });
