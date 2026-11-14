@@ -58,7 +58,7 @@ const ADMIN_EMAIL="diabolo.weien@gmail.com";
 /* ========================= */
 firebase.initializeApp(FB);const auth=firebase.auth(),db=firebase.firestore();
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const CH={whatsapp:'WhatsApp',email:'Email',telegram:'Telegram',messenger:'Facebook Messenger',instagram:'Instagram'};
+const CH={whatsapp:'WhatsApp',wechat:'WeChat 微信',email:'Email',telegram:'Telegram',messenger:'Facebook Messenger',instagram:'Instagram'};
 const TYPES={text:'文字',textarea:'長文字',number:'數字',date:'日期',select:'下拉選單',channel:'聯絡管道',items:'產品與數量',member:'會員資訊'};
 const ST={pending:'待審核',approved:'已批准',disabled:'已停用'};
 const DEF_FIELDS=[
@@ -80,7 +80,7 @@ const idx=()=>NM=new Map(nodes.map(n=>[n.id,n])),kids=p=>nodes.filter(n=>(n.pare
 const ymd=d=>new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
 const addDays=(s,n)=>{const d=new Date(s+'T00:00:00');d.setDate(d.getDate()+n);return ymd(d)};
 const diff=s=>Math.round((new Date(s+'T00:00:00')-new Date(ymd(new Date())+'T00:00:00'))/864e5);
-const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2800)};
+const toast=(m,ms=2800)=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',ms)};
 const openModal=h=>{$('#mbox').innerHTML='<button type="button" class="mx" data-a="close" title="關閉">❌</button>'+h;$('#modal').classList.add('on')},closeModal=()=>{$('#modal').classList.remove('on');dirty=0;if(me&&$('#main')&&!((tab==='tpl'||isAdmin&&['fld','set','promo'].includes(tab))))draw()};
 let dirty=0;
 const typing=()=>{const a=document.activeElement;return a&&a.matches&&a.matches('#main input[data-cy],#main textarea,#main input[type=file]')};
@@ -151,6 +151,7 @@ function ffu(id,fid){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===fi
  openModal(`<h3>${esc(f.label)} · ${esc(c.d.name)}</h3><label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>文案（可直接修改）</label><textarea id="fmsg" rows="6">${esc(fmsg(c,f))}</textarea><div class="btns"><button class="pri" id="fgo">複製文案並前往平台</button><button id="pdone">已發送</button></div>`);
  $('#fgo').onclick=goLink;$('#pdone').onclick=async()=>{await db.collection('customers').doc(id).update({['fSent.'+fid]:o,['fAt.'+fid]:ymd(new Date())});closeModal();toast('已記錄')}}
 const msg=(c,kind,b)=>fill(kind==='renew'?(me.tplRenew||cfg.tplRenew):(b&&b.st==='noreply')?(me.tplNoReply||cfg.tplNoReply):(me.tpl||cfg.tpl),c,b);
+const openCh=(ch,acc,txt)=>{acc=(acc||'').trim();if(ch==='wechat'&&!/^https?:\/\//i.test(acc)){navigator.clipboard?.writeText(txt);toast('文案已複製 ✓ 請在微信搜尋「'+acc+'」，進入對話後貼上並發送',7000);window.open('weixin://','_self');return}window.open(link(ch,acc,txt),'_blank')};
 function link(ch,acc,text){acc=(acc||'').trim();const T=encodeURIComponent(text),u=acc.replace(/^@/,'');
  if(ch==='whatsapp')return'https://wa.me/'+acc.replace(/\D/g,'')+'?text='+T;
  if(/^https?:\/\//i.test(acc))return acc;
@@ -212,7 +213,7 @@ async function oSent(o){const t=todayS(),U={},H=[...(o.hist||[])];
  else if(o.stage==='follow'){U.due=addDays(t,3);H.push({at:t,act:'已發送跟進文案',s:'follow'})}
  else return;
  U.hist=H;U.skipTo='';await db.collection('opps').doc(o.id).update(U)}
-function oquick(id){const o=opps.find(x=>x.id===id);if(!o)return;const txt=omsg(o),msgT=o.stage==='list'?'已發送，已移到「邀約」':needRe(o)?'已發送，已移到「跟進」':'已記錄發送';navigator.clipboard?.writeText(txt);window.open(link(o.channel,o.account,txt),'_blank');oSent(o).then(()=>toast(msgT)).catch(x=>toast('失敗：'+x.message))}
+function oquick(id){const o=opps.find(x=>x.id===id);if(!o)return;const txt=omsg(o),msgT=o.stage==='list'?'已發送，已移到「邀約」':needRe(o)?'已發送，已移到「跟進」':'已記錄發送';navigator.clipboard?.writeText(txt);openCh(o.channel,o.account,txt);oSent(o).then(()=>toast(msgT)).catch(x=>toast('失敗：'+x.message))}
 function ofu(id){const o=opps.find(x=>x.id===id),st=o.stage,re=needRe(o);fctx={o};
  const R=st==='demo'?[['join','加入'],['again','需跟進'],['resched','改期'],['no','拒絕']]:st==='follow'?[['ok','成功邀約（約展示）'],['join','加入'],['again','再跟進'],['no','拒絕']]:[['ok','成功邀約（填預約時間）'],['no','對方拒絕']],sc=st!=='demo';
  openModal(`<h3>${OST[st]} · ${esc(o.name)}</h3>${sc?`<label>平台</label><select id="fch">${chOpts(o.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(o.account)}"><label>${st==='follow'?'跟進文案':re?'再邀約講稿':'邀約講稿'}（可修改）</label><textarea id="fmsg" rows="5">${esc(omsg(o))}</textarea><div class="btns"><button class="pri" id="fgo">① 複製文案並前往平台</button></div>`:''}<label>${sc?'② ':''}結果</label><div class="pgs">${R.map(([k,n])=>`<label class="chk"><input type="radio" name="og" value="${k}">${n}</label>`).join('')}</div><div id="ogx"></div><label>備註</label><input id="onote"><div class="btns"><button class="pri" id="odone">儲存結果</button></div>`);
@@ -337,7 +338,7 @@ const dayIn=(id,v)=>`<div class="stp"><button type="button" data-a="dstep" data-
 const dayVal=(id,def)=>Math.max(1,parseInt($('#'+id)?.value)||def);
 function pgx(v){const b=fctx.b;$('#pgx').innerHTML=v==='rebuy'?`<label>再購買日期</label><input type="date" id="x_d" value="${ymd(new Date())}"><label>數量</label><input id="x_q" type="text" inputmode="numeric" value="${b.qty}"><label>幾天後再跟進（可自行修改）</label>${dayIn('x_n',cycleOf(b)||30)}`
  :v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('x_n',7)}`:v==='noreply'?`<label>幾天後再提醒跟進（預設 7 天，可修改）</label>${dayIn('x_n',7)}`:'<p class="mut">這項產品之後不再提醒跟進。</p>'}
-const goLink=()=>{const t=$('#fmsg').value;navigator.clipboard?.writeText(t);window.open(link($('#fch').value,$('#fac').value,t),'_blank')};
+const goLink=()=>{const t=$('#fmsg').value;navigator.clipboard?.writeText(t);openCh($('#fch').value,$('#fac').value,t)};
 function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x=>x.id===bid):null;fctx={c,b};
  openModal(`<h3>跟進 ${esc(c.d.name)}</h3>${b?`<div class="mut">${esc(b.date)} 購買 · ${esc(b.name)} ×${b.qty}</div>`:''}<label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>跟進文案（可直接修改）</label><textarea id="fmsg" rows="5">${esc(msg(c,kind,b))}</textarea>
  <div class="btns"><button class="pri" id="fgo">① 複製文案並前往平台</button><button data-a="bskip" data-id="${c.id}" data-k="${kind}" data-b="${b?b.id:''}">⏭ 暫時略過（7 天後再提醒）</button></div><p class="mut">WhatsApp、Email 會自動帶入文案；其他平台已複製，貼上再按發送即可。</p>
@@ -367,7 +368,7 @@ function fieldHTML(f,d){const v=d[f.id],L=`<label>${esc(f.label)}${f.req?' <i st
  if(f.type==='select')return L+`<select data-f="${f.id}"><option value="">請選擇</option>${(f.options||[]).map(o=>`<option ${v===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
  if(f.type==='channel')return L+`<select data-f="${f.id}">${chOpts(v)}</select>`;
  if(f.type==='textarea')return L+`<textarea data-f="${f.id}" rows="3">${esc(v)}</textarea>`;
- return L+`<input data-f="${f.id}" type="${f.type==='number'?'number':f.type==='date'?'date':'text'}" value="${esc(v)}" ${f.id==='account'?'placeholder="電話（含國碼）/ 用戶名 / 連結"':''}>`}
+ return L+`<input data-f="${f.id}" type="${f.type==='number'?'number':f.type==='date'?'date':'text'}" value="${esc(v)}" ${f.id==='account'?'placeholder="電話（含國碼）/ 用戶名 / 微信號 / 連結"':''}>`}
 function cform(id){const c=id?custs.find(x=>x.id===id):null,d=c?c.d:{};items=[];path=[];stockMode=0;editing=!!id;
  openModal(`<h3>${c?'編輯顧客':'新增顧客'}</h3>${fields.filter(f=>f.on&&!sk(f)).map(f=>fieldHTML(f,d)).join('')}<div class="btns"><button class="pri" id="csave" data-a="csave" data-id="${id||''}">儲存</button><button data-a="close">取消</button></div>`);itemsUI()}
 function chain(id){const a=[];while(id){a.unshift(id);id=NM.get(id).parent||null}return a}
@@ -517,11 +518,11 @@ document.addEventListener('click',async e=>{
   if(nk!==oldKey){let need=-bl(oldKey);if(need>0)S.filter(e=>skey(e)===oldKey&&e.type==='out').sort((x,y)=>(x.date||'').localeCompare(y.date||'')).forEach(e=>{if(need>0){e.pid=o.pid||'';e.name=o.name;need-=e.qty}})}
   if(bl(nk)<0||bl(oldKey)<0)return toast('寄存數量不能少於已交貨的數量，請先調整交貨紀錄');
   try{await db.collection('customers').doc(id).update({buys:B,stock:S});closeModal();toast('已更新，相關事項已同步')}catch(x){toast('儲存失敗：'+x.message)}return}
- if(a==='pquick'){const c=custs.find(x=>x.id===id),p=promos.find(x=>x.id===t.dataset.p);if(!c||!p)return;const txt=fill(p.text,c,null,pMatch(p,c).join('、'));navigator.clipboard?.writeText(txt);window.open(link(c.d.channel,c.d.account,txt),'_blank');db.collection('customers').doc(id).update({['promoSent.'+p.id]:ymd(new Date())}).then(()=>toast('已發送並記錄')).catch(x=>toast('失敗：'+x.message));return}
+ if(a==='pquick'){const c=custs.find(x=>x.id===id),p=promos.find(x=>x.id===t.dataset.p);if(!c||!p)return;const txt=fill(p.text,c,null,pMatch(p,c).join('、'));navigator.clipboard?.writeText(txt);openCh(c.d.channel,c.d.account,txt);db.collection('customers').doc(id).update({['promoSent.'+p.id]:ymd(new Date())}).then(()=>toast('已發送並記錄')).catch(x=>toast('失敗：'+x.message));return}
  if(a==='oics'){const o=opps.find(x=>x.id===id);if(o)icsOpp(o);return}
  if(a==='goopp'){closeModal();tab='opp';return draw()}
  if(a==='prdet')return t.dataset.k==='Opp'?oppDetail(id):custDetail(id);
- if(a==='bquick'){const c=custs.find(x=>x.id===id),b=c&&buysOf(c).find(x=>x.id===t.dataset.b);if(!b)return;const txt=msg(c,'follow',b);navigator.clipboard?.writeText(txt);window.open(link(c.d.channel,c.d.account,txt),'_blank');const B=buysOf(c).map(x=>({...x})),o=B.find(x=>x.id===b.id);o.hist=[...(o.hist||[]),{at:ymd(new Date()),st:'sent'}];db.collection('customers').doc(id).update({buys:B}).then(()=>toast('已發送，記得稍後記錄進度')).catch(x=>toast('失敗：'+x.message));return}
+ if(a==='bquick'){const c=custs.find(x=>x.id===id),b=c&&buysOf(c).find(x=>x.id===t.dataset.b);if(!b)return;const txt=msg(c,'follow',b);navigator.clipboard?.writeText(txt);openCh(c.d.channel,c.d.account,txt);const B=buysOf(c).map(x=>({...x})),o=B.find(x=>x.id===b.id);o.hist=[...(o.hist||[]),{at:ymd(new Date()),st:'sent'}];db.collection('customers').doc(id).update({buys:B}).then(()=>toast('已發送，記得稍後記錄進度')).catch(x=>toast('失敗：'+x.message));return}
  if(a==='gocust'){closeModal();cOpen.set(id,true);tab='cust';return draw()}
  if(a==='theme'){const n=curTheme()==='dark'?'light':'dark';document.documentElement.dataset.theme=n;try{localStorage.setItem('theme',n)}catch(e){}t.textContent=n==='dark'?'☀':'🌙';return}
  if(a==='close')return closeModal();
@@ -545,7 +546,7 @@ document.addEventListener('click',async e=>{
  if(a==='pscope'){const k=pf.path[pf.path.length-1],n=NM.get(k);if(!n)return;const L=n.p?pf.prods:pf.cats;if(!L.includes(k))L.push(k);pf.path=[];return pchips()}
  if(a==='fquick'||a==='fedit'||a==='fskip'){const c=custs.find(x=>x.id===id),f=fields.find(x=>x.id===t.dataset.f);if(!c||!f)return;const o=occOf(f,c.d[f.id]),mark=()=>db.collection('customers').doc(id).update({['fSent.'+f.id]:o,['fAt.'+f.id]:ymd(new Date())});
   if(a==='fskip'){mark();return}if(a==='fedit')return ffu(id,f.id);
-  const txt=fmsg(c,f);navigator.clipboard?.writeText(txt);window.open(link(c.d.channel,c.d.account,txt),'_blank');mark();return}
+  const txt=fmsg(c,f);navigator.clipboard?.writeText(txt);openCh(c.d.channel,c.d.account,txt);mark();return}
  if(a==='tsave'||a==='treset'){const D=firebase.firestore.FieldValue.delete(),R=a==='treset',g=id=>R?'':($('#'+id)?.value||'').trim(),A=g('t_a'),B=g('t_b'),I=g('t_i'),O=g('t_o'),RI=g('t_ri'),NR=g('t_nr'),U={tpl:A||D,tplRenew:B||D,tplInvite:I||D,tplOppFu:O||D,tplReinvite:RI||D,tplNoReply:NR||D};me.ftpl=me.ftpl||{};
   fields.filter(f=>f.on&&f.tplOn).forEach(f=>{const v=g('t_f_'+f.id);U['ftpl.'+f.id]=v||D;me.ftpl[f.id]=v});
   try{await db.collection('users').doc(me.uid).update(U);me.tpl=A;me.tplRenew=B;me.tplInvite=I;me.tplOppFu=O;me.tplReinvite=RI;me.tplNoReply=NR;toast(R?'已恢復預設':'已儲存');tplView()}catch(x){toast(x.code==='permission-denied'?'權限不足：請更新 Firestore 規則':'失敗：'+x.message)}return}
