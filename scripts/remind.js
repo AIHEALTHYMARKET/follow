@@ -2,6 +2,18 @@
 const admin = require('firebase-admin'), nodemailer = require('nodemailer');
 admin.initializeApp({ credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
 const db = admin.firestore();
+// 手機推播（Firebase Cloud Messaging，免費）。失敗不影響 Email
+const push = async (uid, u, title, body) => {
+  const tokens = (u && u.fcmTokens) || [];
+  if (!tokens.length) return 0;
+  try {
+    const r = await admin.messaging().sendEachForMulticast({ tokens, data: { title, body, url: process.env.SITE_URL || '' }, webpush: { headers: { Urgency: 'high', TTL: '43200' } } });
+    const bad = [];
+    r.responses.forEach((x, i) => { if (!x.success && /registration-token-not-registered|invalid-registration-token|invalid-argument/.test((x.error && x.error.code) || '')) bad.push(tokens[i]); });
+    if (bad.length) await db.collection('users').doc(uid).update({ fcmTokens: admin.firestore.FieldValue.arrayRemove(...bad) });
+    return r.successCount;
+  } catch (e) { console.error('推播失敗：' + (e.code || e.message)); return 0; }
+};
 const today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Kuala_Lumpur' }).format(new Date());
 const dn = s => Math.round(Date.parse(s + 'T00:00:00Z') / 864e5);
 const addDays = (s, n) => new Date((dn(s) + n) * 864e5).toISOString().slice(0, 10);
@@ -22,6 +34,10 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   if (!fl.exists || (!fl.data().bday && !F.some(f => f.id === 'birthday'))) F = [...F, BDAY];
   F = F.filter(f => f.on && f.remOn && f.type === 'date');
   const users = new Map(us.docs.map(d => [d.id, d.data()]));
+  if (process.env.TEST_PUSH === '1') {
+    let n = 0; for (const [uid, u] of users) n += await push(uid, u, 'Unfinished跟進系統', '這是一則測試推播，收到代表手機推播設定成功 🎉');
+    console.log(`測試推播已送出：${n} 個裝置`); return;
+  }
   const buysOf = c => c.buys || (c.d.items || []).map((i, k) => ({ id: 'm' + k, pid: i.id, name: i.name, qty: i.qty, date: c.base || c.d.purchaseDate, cycle: i.cycle }));
   const dueOf = b => { if (b.stop || b.done) return null; if (b.due) return b.due; const y = +(NM.get(b.pid)?.cycle ?? b.cycle); return y > 0 && b.date ? addDays(b.date, y) : null; };
   const underCat = (id, s) => { while (id) { if (s.has(id)) return 1; id = NM.get(id)?.parent; } return 0; };
@@ -37,7 +53,10 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   for (const doc of cs.docs) {
     const c = doc.data(), d = c.d || {}, u = c.ownerUid;
     if (!users.has(u)) continue;
-    for (const b of buysOf(c)) {
+    const BL = buysOf(c), lat = new Map();
+    BL.forEach(b => { const k = b.pid || b.name; if (b.date && (!lat.has(k) || b.date > lat.get(k))) lat.set(k, b.date); });
+    for (const b of BL) {
+      if (b.date && lat.get(b.pid || b.name) > b.date) continue; // 已有較新的購買 = 自動判定已回購
       const date = dueOf(b); if (!date) continue; const df = diff(date);
       if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `產品跟進：${b.name}（${b.date || ''} 購買）`, df });
     }
@@ -73,7 +92,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   }
   const tr = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
   const td = 'padding:10px;border-bottom:1px solid #e9e2d2';
-  let sent = 0;
+  let sent = 0, pushed = 0;
   for (const [uid, g] of per) {
     const u = users.get(uid);
     g.rows.sort((a, b) => a.df - b.df);
@@ -91,7 +110,9 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     const html = `<div style="font-family:'Noto Sans TC',sans-serif;max-width:560px;margin:auto;background:#f6f2ea;padding:24px"><div style="background:#1b2236;color:#e6d3a3;padding:16px 20px;border-radius:12px 12px 0 0;font-size:18px">◆ 顧客跟進提醒</div><div style="background:#fff;padding:20px;border-radius:0 0 12px 12px">${body}<p style="text-align:center;margin-top:22px"><a href="${esc(process.env.SITE_URL)}" style="background:#b08d4a;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none">進入系統跟進</a></p></div></div>`;
     await tr.sendMail({ from: `Unfinished跟進系統 <${process.env.GMAIL_USER}>`, to: u.email, subject: `【跟進提醒】${g.bd.length ? '本月生日顧客＋' : ''}今天有 ${g.rows.length} 項需要處理`, html });
     sent++;
+    const extra = [promos.length && `${promos.length} 則新促銷`, g.bd.length && '本月有顧客生日'].filter(Boolean);
+    pushed += await push(uid, u, 'Unfinished跟進系統', `${u.realName}，今天有 ${g.rows.length} 項待跟進${extra.length ? '、' + extra.join('、') : ''}，點擊進入系統`);
   }
   for (const p of newPromos) await p.ref.update({ emailed: true });
-  console.log(`完成：已寄出 ${sent} 封`); // 不輸出顧客資料
+  console.log(`完成：已寄出 ${sent} 封 Email、${pushed} 則手機推播`); // 不輸出顧客資料
 })().catch(e => { console.error(e.message); process.exit(1); });
