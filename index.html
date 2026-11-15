@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1b2236"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="跟進系統"><meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Unfinished跟進系統</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Cormorant+Garamond:wght@600&display=swap" rel="stylesheet">
 <style>
@@ -48,13 +49,15 @@ html[data-theme=dark] .stp2.done{background:#1f3a31;color:#6fd3a9}
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 /* ===== ===== */
-const FB={apiKey:"AIzaSyAj2yhiiVg07faOhPVNYIrnzmXobrm8_xo",authDomain:"follow-2041f.firebaseapp.com",projectId:"follow-2041f",appId:"1:577807614922:web:a067e166e19baae7ae0533"};
+const FB={apiKey:"AIzaSyAj2yhiiVg07faOhPVNYIrnzmXobrm8_xo",authDomain:"follow-2041f.firebaseapp.com",projectId:"follow-2041f",appId:"1:577807614922:web:a067e166e19baae7ae0533",messagingSenderId:"577807614922"};
 const ADMIN_EMAIL="diabolo.weien@gmail.com";
+const VAPID_KEY="貼上你的網路推播公開金鑰";
 /* ========================= */
 firebase.initializeApp(FB);const auth=firebase.auth(),db=firebase.firestore();
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -112,15 +115,23 @@ async function start(){
  qy.onSnapshot(s=>{custs=s.docs.map(d=>({id:d.id,...d.data()}));if(['home','cust','stock','prog','opp'].includes(tab))redraw();if(!notified){notified=1;setTimeout(()=>{notify();setInterval(()=>notify(),36e5)},2500)}},e=>toast('讀取失敗：'+e.message));
  const ob=db.collection('opps');(isAdmin?ob:ob.where('ownerUid','==',me.uid)).onSnapshot(s=>{opps=s.docs.map(d=>({id:d.id,...d.data()}));if(['home','opp','prog'].includes(tab))redraw()},e=>toast('Opp 讀取失敗：'+e.message));
  if(isAdmin)db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='mem'||tab==='home')redraw()});
- draw()}
+ draw();pushAuto()}
 const draw=()=>{const ok=['home','cust','opp','stock','prog','tpl'].concat(isAdmin?['mem','promo','fld','cat','set']:[]);if(!ok.includes(tab))tab='home';try{localStorage.setItem('tab',tab)}catch(e){}document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.id===tab));({home:homeView,cust:custView,mem:memView,promo:promoView,opp:oppView,stock:stockView,prog:progView,tpl:tplView,fld:fldView,cat:catView,set:setView})[tab]()};
 
 /* ---------- 跟進計算 ---------- */
 const curMonth=()=>ymd(new Date()).slice(0,7);
-const PS={rebuy:'已回購',again:'再跟進',unhappy:'顧客不滿意',noreply:'沒回覆'},HS={...PS,sent:'已發送跟進',skip:'暫時略過'};
-const buysOf=c=>c.buys||(c.d.items||[]).map((i,k)=>({id:'m'+k,pid:i.id,name:i.name,qty:i.qty,date:c.base||c.d.purchaseDate,cycle:i.cycle}));
+const PS={rebuy:'已回購',again:'再跟進',unhappy:'顧客不滿意',noreply:'沒回覆',nextmonth:'暫時不要．待下個月再跟進',appliance:'電器類已跟進完成'},HS={...PS,sent:'已發送跟進',skip:'暫時略過'};
+const SUP=new WeakMap(),BC=new WeakMap();
+const buysOf=c=>{const src=c.buys;if(src&&BC.has(src))return BC.get(src);
+ const L=(src||(c.d.items||[]).map((i,k)=>({id:'m'+k,pid:i.id,name:i.name,qty:i.qty,date:c.base||c.d.purchaseDate,cycle:i.cycle}))).map(b=>({...b})),lat=new Map();
+ L.forEach(b=>{const k=b.pid||b.name;if(b.date&&(!lat.has(k)||b.date>lat.get(k).date))lat.set(k,b)});
+ L.forEach(b=>{const l=lat.get(b.pid||b.name);if(l&&b.date&&l.date>b.date)SUP.set(b,l)});
+ if(src)BC.set(src,L);return L};
+const stCls=x=>x==='unhappy'?'red':(x==='rebuy'||x==='appliance')?'approved':'gold';
+const stTag=b=>SUP.has(b)?`<span class="tag approved">已回購（${esc(SUP.get(b).date)} 再購買）</span>`:b.st?`<span class="tag ${stCls(b.st)}">${PS[b.st]}</span>`:'<span class="tag">尚未跟進</span>';
+const addMonths=(s,n)=>{const[y,m,d]=s.split('-').map(Number),t=new Date(y,m-1+n,1),last=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();t.setDate(Math.min(d,last));return ymd(t)};
 const cycleOf=b=>NM.get(b.pid)?.cycle??b.cycle;
-const dueOf=b=>{if(b.stop||b.done)return null;if(b.due)return b.due;const y=+cycleOf(b);return y>0&&b.date?addDays(b.date,y):null};
+const dueOf=b=>{if(b.stop||b.done||SUP.has(b))return null;if(b.due)return b.due;const y=+cycleOf(b);return y>0&&b.date?addDays(b.date,y):null};
 const mkBuy=(i,date,days)=>{const b={id:uid(),pid:i.id,name:i.name,qty:i.qty,date,cycle:NM.get(i.id)?.cycle||i.cycle||30};if(days)b.due=addDays(date,days);return b};
 function dues(c){const r=buysOf(c).map(b=>({c,b,date:dueOf(b),kind:'follow'})).filter(x=>x.date);
  const m=c.d.member;if(m&&m.is&&m.join){let rd=addDays(m.join,+cfg.renewDays);if(c.renewSkip&&c.renewSkip>rd)rd=c.renewSkip;r.push({c,date:rd,kind:'renew'})}return r}
@@ -140,6 +151,34 @@ function notify(manual){const n=rems().filter(r=>r.df<=0).length,oo=oRems().leng
  const granted='Notification'in window&&Notification.permission==='granted';
  if(granted){try{const N=new Notification('Unfinished跟進系統：今天有 '+(tot||P.length)+' 項待處理',{body:P.join('、')+'，點擊進入系統跟進',tag:'crm-daily'});N.onclick=()=>{window.focus();tab='home';draw();N.close()}}catch(e){}}
  else if(!popShown&&!manual&&!$('#modal').classList.contains('on')){popShown=1;openModal(`<h3>🔔 今天有 ${tot||P.length} 項待處理</h3><div class="mut" style="margin:6px 0 10px">${esc(P.join('、'))}</div><div class="btns"><button class="pri" data-a="gohome">前往今日事項</button>${'Notification'in window&&Notification.permission==='default'?'<button data-a="notif">開啟瀏覽器通知</button>':''}</div>`)}}
+/* ---------- 手機推播 (FCM) ---------- */
+const vapidOk=()=>!!VAPID_KEY&&!VAPID_KEY.includes('貼上');
+const pushSupported=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const standalone=()=>navigator.standalone===true||(window.matchMedia&&matchMedia('(display-mode: standalone)').matches);
+const pushOn=()=>{try{return!!localStorage.getItem('fcm')&&Notification.permission==='granted'}catch(e){return false}};
+let fcmBound=0;
+async function pushEnable(silent){
+ try{if(!vapidOk())return toast('管理員尚未設定推播金鑰（VAPID_KEY）');if(!pushSupported())return toast('此瀏覽器不支援手機推播');
+  const perm=Notification.permission==='granted'?'granted':await Notification.requestPermission();
+  if(perm!=='granted')return silent?0:toast('你沒有允許通知，請到瀏覽器設定開啟');
+  const qs=new URLSearchParams({apiKey:FB.apiKey,authDomain:FB.authDomain,projectId:FB.projectId,appId:FB.appId,messagingSenderId:FB.messagingSenderId});
+  const reg=await navigator.serviceWorker.register('firebase-messaging-sw.js?'+qs.toString());await navigator.serviceWorker.ready;
+  const m=firebase.messaging(),tok=await m.getToken({vapidKey:VAPID_KEY,serviceWorkerRegistration:reg});if(!tok)throw new Error('取不到推播代碼');
+  await db.collection('users').doc(me.uid).update({fcmTokens:firebase.firestore.FieldValue.arrayUnion(tok)});
+  try{localStorage.setItem('fcm',tok)}catch(e){}
+  if(!fcmBound){fcmBound=1;m.onMessage(p=>{const d=p.data||{};toast((d.title||'提醒')+'：'+(d.body||''),6000)})}
+  if(!silent){toast('✅ 已開啟手機推播');draw()}}
+ catch(e){if(!silent)toast('開啟失敗：'+(e.code||e.message),6000)}}
+async function pushDisable(){try{const tok=localStorage.getItem('fcm');try{await firebase.messaging().deleteToken()}catch(e){}
+ if(tok)await db.collection('users').doc(me.uid).update({fcmTokens:firebase.firestore.FieldValue.arrayRemove(tok)});
+ try{localStorage.removeItem('fcm')}catch(e){}toast('已關閉此裝置的手機推播');draw()}catch(e){toast('失敗：'+e.message)}}
+const pushAuto=()=>{if(vapidOk()&&pushSupported()&&pushOn())pushEnable(true)};
+const homeBanner=()=>{
+ if(vapidOk()){
+  if(isIOS()&&!standalone())return`<div class="card">📱 <b>iPhone 要先「加入主畫面」才能收手機推播</b><div class="mut">用 Safari 開啟本頁 → 點下方「分享」⬆ → 加入主畫面 → 之後從主畫面的圖示開啟，再回到這裡按「開啟手機推播」。</div></div>`;
+  if(pushSupported())return pushOn()?`<div class="card ch">✅ 此裝置已開啟手機推播（關閉網頁也會收到）<span class="sp"></span><button class="sm" data-a="pushoff">關閉</button></div>`:`<div class="card">📱 <button class="pri" data-a="pushon">開啟手機推播</button> <span class="mut">關閉網頁也能收到跟進提醒</span></div>`}
+ return('Notification' in window&&Notification.permission==='default')?`<div class="card">🔔 <button class="pri" data-a="notif">開啟瀏覽器提醒</button></div>`:''};
 const fill=(t,c,b,names)=>t.replaceAll('{稱呼}',c.d.callName||c.d.name||'').replaceAll('{顧客}',c.d.name||'').replaceAll('{產品}',names||(b?b.name:'')).replaceAll('{下線}',c.ownerName||'');
 const ftplOf=f=>(me.ftpl||{})[f.id]||f.tpl||'Hi {稱呼}～我是{下線} 😊';
 const fmsg=(c,f)=>fill(ftplOf(f),c,null,'').replaceAll('{欄位}',f.label).replaceAll('{值}',c.d[f.id]||'');
@@ -243,7 +282,7 @@ function oppView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="oq
 function oppDetail(oid){const o=opps.find(x=>x.id===oid);if(!o)return toast('找不到此 Opp');
  openModal(`<h3>🤝 ${esc(o.name)}</h3><div class="mut">${CH[o.channel]||''}${isAdmin?' · 填寫者 '+esc(o.ownerName):''}</div>${stepBar(o)}<div class="mut">下一步：${esc(onext(o))}</div>${ohist(o,true)}<div class="btns"><button class="pri" data-a="goopp">前往 Opp 頁</button><button data-a="close">關閉</button></div>`)}
 function custDetail(cid){const c=custs.find(x=>x.id===cid);if(!c)return toast('找不到此顧客');const B=buysOf(c).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
- openModal(`<h3>${esc(c.d.name)} · 購買與跟進紀錄</h3><div class="mut">${CH[c.d.channel]||''} · 稱呼：${esc(c.d.callName||'')}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>`+(B.map(b=>{const d=dueOf(b),df=d?diff(d):0;return`<div class="card" style="margin:10px 0"><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}${stockOf(c).some(e=>e.buyId===b.id)?' <span class="tag gold">📦 寄存</span>':''}<div style="margin:6px 0">${b.st?`<span class="tag ${b.st==='unhappy'?'red':b.st==='rebuy'?'approved':'gold'}">${PS[b.st]}</span>`:'<span class="tag">尚未跟進</span>'}</div><div class="mut">下一步：${b.stop?'不再提醒（顧客不滿意）':b.done?'已回購，之後請看新的購買紀錄':d?`${d} 跟進 <span class="tag ${cls(df)}">${when(df)}</span>`:'—'}</div>${histHTML(b)}</div>`}).join('')||'<p class="mut">尚無購買紀錄</p>')+`<div class="btns"><button class="pri" data-a="gocust" data-id="${c.id}">前往顧客頁</button><button data-a="close">關閉</button></div>`)}
+ openModal(`<h3>${esc(c.d.name)} · 購買與跟進紀錄</h3><div class="mut">${CH[c.d.channel]||''} · 稱呼：${esc(c.d.callName||'')}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>`+(B.map(b=>{const d=dueOf(b),df=d?diff(d):0;return`<div class="card" style="margin:10px 0"><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}${stockOf(c).some(e=>e.buyId===b.id)?' <span class="tag gold">📦 寄存</span>':''}<div style="margin:6px 0">${stTag(b)}</div><div class="mut">下一步：${b.stop?'不再提醒（顧客不滿意）':SUP.has(b)?'已回購，之後依最新購買日期（'+SUP.get(b).date+'）跟進':b.done?'已回購，之後請看新的購買紀錄':d?`${d} 跟進 <span class="tag ${cls(df)}">${when(df)}</span>`:'—'}</div>${histHTML(b)}</div>`}).join('')||'<p class="mut">尚無購買紀錄</p>')+`<div class="btns"><button class="pri" data-a="gocust" data-id="${c.id}">前往顧客頁</button><button data-a="close">關閉</button></div>`)}
 
 /* ---------- 寄存 ---------- */
 const stockOf=c=>{const B=new Set(buysOf(c).map(b=>b.id));return(c.stock||[]).filter(e=>!e.buyId||B.has(e.buyId))},skey=e=>e.pid||e.name,lim3=()=>addDays(ymd(new Date()),-1095);
@@ -275,8 +314,9 @@ function stockList(){const b=$('#slist');if(!b)return;const L=myList(),k=stkQ.to
 function stockView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="stq" placeholder="搜尋產品 / 顧客" value="${esc(stkQ)}"><button class="pri" data-a="sin" data-id="">＋ 新增寄存</button></div><div id="slist"></div>`;stockList()}
 
 /* ---------- 跟進進度 ---------- */
-const stColorCode=c=>c==='unhappy'?'C0483F':c==='rebuy'?'2F8F6A':'8A6A22',rowCol=x=>x.b?stCol(x.b):stColorCode(x.stc),tagc=c=>c==='unhappy'?'red':c==='rebuy'?'approved':'gold';
+const stColorCode=c=>c==='unhappy'?'C0483F':(c==='rebuy'||c==='appliance')?'2F8F6A':'8A6A22',rowCol=x=>x.b?stCol(x.b):stColorCode(x.stc),tagc=stCls;
 function progRows(m){const r=[];myList().forEach(c=>buysOf(c).forEach(b=>(b.hist||[]).forEach(h=>{if((h.at||'').slice(0,7)!==m)return;r.push({date:h.at,kind:'顧客',name:c.d.name,what:`${b.name} ×${b.qty}（${h.prev||b.date||''} 購買）`,st:HS[h.st]||'',stc:h.st,next:h.st==='rebuy'?`再購買 ${h.buy||''}`+(h.n?`，${h.n} 天後跟進`:''):h.n?`${addDays(h.at,h.n)}（${h.n} 天後）`:'—',note:h.note||'',owner:c.ownerName,cid:c.id})})));
+ myList().forEach(c=>buysOf(c).filter(b=>SUP.has(b)&&!(b.hist||[]).some(h=>h.st==='rebuy')).forEach(b=>{const q=SUP.get(b);if((q.date||'').slice(0,7)!==m)return;const nd=dueOf(q);r.push({date:q.date,kind:'顧客',name:c.d.name,what:`${b.name} ×${b.qty}（${b.date||''} 購買）`,st:'已回購（自動判定）',stc:'rebuy',next:`再購買 ${q.date}`+(nd?`，下次跟進 ${nd}`:''),note:'',owner:c.ownerName,cid:c.id})}));
  promos.forEach(p=>myList().forEach(c=>{const d=(c.promoSent||{})[p.id];if(d&&d.slice(0,7)===m)r.push({date:d,kind:'顧客',name:c.d.name,what:'🎁 '+p.title,st:'已發送促銷',stc:'promo',next:'—',note:'',owner:c.ownerName,cid:c.id})}));
  myOpps().forEach(o=>(o.hist||[]).forEach(h=>{if((h.at||'').slice(0,7)!==m)return;r.push({date:h.at,kind:'Opp',name:o.name,what:'階段：'+(OST[o.stage]||''),st:h.act,stc:'opp',next:h.tm?'展示 '+h.tm.replace('T',' '):h.n?`${addDays(h.at,h.n)}（${h.n} 天後）`:'—',note:h.note||'',owner:o.ownerName,oid:o.id})}));
  return r.sort((a,b)=>a.date.localeCompare(b.date)||a.name.localeCompare(b.name,'zh-Hant')).map((x,i)=>({...x,gi:i,i:0}))}
@@ -295,6 +335,17 @@ function progView(){const m=progM||(progM=curMonth()),A=progRows(m),cnt={};A.for
 
 let homeSel='all';
 const doneToday=(L=myList())=>{const t=ymd(new Date());return L.flatMap(c=>[...buysOf(c).filter(b=>b.at===t).map(b=>({c,t:`${b.name} · ${PS[b.st]||''}`})),...fields.filter(f=>f.remOn&&(c.fAt||{})[f.id]===t).map(f=>({c,t:f.label+' 已發送'}))]).concat(promos.filter(p=>p.month===curMonth()).flatMap(p=>L.filter(c=>(c.promoSent||{})[p.id]===t).map(c=>({c,t:'🎁 '+p.title+' 已發送'}))))};
+const stripGreet=t=>{const L=t.split('\n');return(/^Hi|我是/.test(L[0])&&L.length>1)?L.slice(1).join('\n'):t};
+function mergeMsg(c,its){const nm=a=>[...new Set(a.map(r=>r.b.name))].join('、'),F=its.filter(r=>r.kind==='follow'&&r.b.st!=='noreply'),N=its.filter(r=>r.kind==='follow'&&r.b.st==='noreply'),R=its.filter(r=>r.kind==='renew'),S=[];
+ if(F.length)S.push(fill(me.tpl||cfg.tpl,c,null,nm(F)));if(N.length)S.push(fill(me.tplNoReply||cfg.tplNoReply,c,null,nm(N)));if(R.length)S.push(fill(me.tplRenew||cfg.tplRenew,c,null,''));
+ return S.map((t,i)=>i?stripGreet(t):t).join('\n\n')}
+const itLabel=r=>r.kind==='renew'?'會員續約':`${esc(r.b.name)} ×${r.b.qty}`;
+const grpCard=(c,its)=>`<div class="card"><div class="ch"><b>${esc(c.d.name)}</b><span class="tag red">${its.length} 項待跟進</span><span class="tag">${CH[c.d.channel]||''}</span>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}</div>${its.map(r=>`<div class="br"><div>${itLabel(r)}${r.b?` · 購買於 ${esc(r.b.date)}`:''}<br><span class="mut">應跟進 ${r.date}</span> <span class="tag ${cls(r.df)}">${when(r.df)}</span></div><div class="bb"><button class="sm" data-a="fu" data-id="${c.id}" data-k="${r.kind}" data-b="${r.b?r.b.id:''}">記錄進度</button><button class="sm" data-a="bskip" data-id="${c.id}" data-k="${r.kind}" data-b="${r.b?r.b.id:''}">⏭ 略過</button></div></div>`).join('')}<div class="btns"><button class="pri" data-a="fuall" data-id="${c.id}">📨 一鍵發送合併訊息（${its.length} 項）</button></div></div>`;
+const isRem=x=>!x.promo&&!x.f&&!x.opp&&x.c&&x.df<=0;
+const cardsOf=list=>{const seen=new Set(),out=[];list.forEach(x=>{if(!isRem(x)){out.push(x.promo?prCard(x):x.f?fCard(x):remCard(x));return}if(seen.has(x.c.id))return;seen.add(x.c.id);const its=list.filter(y=>isRem(y)&&y.c.id===x.c.id);out.push(its.length>1?grpCard(x.c,its):remCard(x))});return out.join('')};
+function fuall(cid){const c=custs.find(x=>x.id===cid),its=c?rems([c]).filter(r=>r.df<=0):[];if(!its.length)return toast('沒有待跟進項目');if(its.length===1)return fu(cid,its[0].kind,its[0].b?its[0].b.id:'');
+ openModal(`<h3>合併跟進 ${esc(c.d.name)}（${its.length} 項）</h3><div class="mut">${its.map(itLabel).join('、')}</div><label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>合併文案（可直接修改）</label><textarea id="fmsg" rows="8">${esc(mergeMsg(c,its))}</textarea><div class="btns"><button class="pri" id="fgo">① 複製文案並前往平台</button></div><p class="mut">一封訊息涵蓋全部項目（促銷不包含）。發送後請逐項記錄進度：</p>${its.map(r=>`<div class="ch" style="padding:5px 0;border-top:1px solid var(--line)"><span>${itLabel(r)}</span><span class="sp"></span><button class="sm" data-a="fu" data-id="${cid}" data-k="${r.kind}" data-b="${r.b?r.b.id:''}">記錄進度</button></div>`).join('')}`);
+ let sent=0;$('#fgo').onclick=()=>{goLink();if(sent)return;sent=1;const t=ymd(new Date()),B=buysOf(custs.find(x=>x.id===cid)||c).map(x=>({...x}));its.filter(r=>r.b).forEach(r=>{const o=B.find(x=>x.id===r.b.id);if(o)o.hist=[...(o.hist||[]),{at:t,st:'sent'}]});db.collection('customers').doc(cid).update({buys:B})}}
 function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),D=doneToday(L),
  A=[...R,...F,...P.map(x=>({...x,df:0,promo:1}))].sort((a,b)=>a.df-b.df),
  todo=A.filter(x=>x.df<=0),over=A.filter(x=>x.df<0),soon=A.filter(x=>x.df>0),total=todo.length+D.length,pct=total?Math.round(D.length/total*100):100,
@@ -305,11 +356,11 @@ function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myLi
  doneCard=x=>`<div class="card" style="opacity:.75"><div class="ch"><span class="tag approved">✓ 已完成</span><b>${esc(x.c.d.name)}</b><span class="mut">${esc(x.t)}</span></div></div>`,
  custRow=c=>{const n=nextOf(c);return`<div class="card"><div class="ch" data-a="gocust" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}<span class="sp"></span><span class="mut">${n?'下次跟進 '+n:'暫無待跟進'} ›</span></div></div>`},
  bm=fieldSec([],BM),
- T={all:['今日應跟進（含促銷、生日）',todo.map(card).join('')+bm+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',todo.map(card).join('')+bm,'今天的跟進都完成了 🎉'],over:['已逾期',over.map(card).join(''),'沒有逾期項目 👍'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
+ T={all:['今日應跟進（含促銷、生日）',cardsOf(todo)+bm+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',cardsOf(todo)+bm,'今天的跟進都完成了 🎉'],over:['已逾期',cardsOf(over),'沒有逾期項目 👍'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
  sel=T[homeSel],
  sum=`<div class="card"><div class="ch"><b>今日進度</b><span class="sp"></span><span class="mut">${total?`${D.length} / ${total} 已完成`:'今天沒有待辦'}</span></div><div style="height:8px;border-radius:99px;background:var(--line);margin:8px 0;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--grn)"></div></div><div class="mut">${todo.length?`還有 ${todo.length} 項未完成`+(over.length?`（其中 ${over.length} 項已逾期）`:''):'🎉 今天的跟進都完成了'}${nx?` · 下一個跟進：${esc(nx.c.d.name)}${nx.b?' '+esc(nx.b.name):''}（${nx.date}，${when(diff(nx.date))}）`:''}</div></div>`;
  $('#main').innerHTML=(isAdmin?`<div class="bar">${fsel()}</div>`:'')+(isAdmin&&filterUid==='all'?monCard():'')
- +(('Notification' in window&&Notification.permission==='default')?`<div class="card">🔔 <button class="pri" data-a="notif">開啟瀏覽器提醒</button></div>`:'')
+ +homeBanner()
  +`<div class="two"><section class="col"><div class="colh">👥 顧客跟進進度</div>${sum}<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(76px,1fr))">${box('all',total,'今日應跟進')}${box('todo',todo.length,'未完成','red')}${box('over',over.length,'逾期','red')}${box('soon',soon.length,'即將到期')}${box('cust',L.length,'顧客總數')}</div>`
  +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:({todo:todo.length,over:over.length,soon:soon.length})[homeSel]}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2])):'<div class="mut" style="text-align:center;padding:6px">點上方數字查看明細</div>')
  +`</section><section class="col"><div class="colh o">🤝 Opp 進度（邀約流程）</div>${oPanel(myOpps(),homeOSel,'home')}</section></div>`}
@@ -320,7 +371,7 @@ function custView(){$('#main').innerHTML=`<div class="bar">${fsel()}<input id="s
 function list(){const k=q.toLowerCase();return myList().filter(c=>!k||(c.d.name||'').toLowerCase().includes(k)||buysOf(c).some(b=>(b.name||'').toLowerCase().includes(k))).sort((a,b)=>(nextOf(a)||'9').localeCompare(nextOf(b)||'9'))}
 const histOf=b=>{const lim=addDays(ymd(new Date()),-730);return(b.hist||[]).filter(h=>h.at>=lim).slice().sort((x,y)=>y.at.localeCompare(x.at))};
 const histHTML=b=>{const H=histOf(b);if(!H.length)return'';return`<details style="grid-column:1/-1"><summary class="mut" style="cursor:pointer">跟進紀錄（近兩年 ${H.length} 筆）</summary>${H.map(h=>`<div class="mut" style="padding:2px 0 2px 12px">${esc(h.at)} · <b style="color:var(--ink)">${HS[h.st]||''}</b>${h.st==='rebuy'?`（${h.prev?'上次購買 '+esc(h.prev)+' → ':''}再購買 ${esc(h.buy||'')}）`:h.n?`（${h.n} 天後再跟進）`:''}${h.note?' · '+esc(h.note):''}</div>`).join('')}</details>`};
-function buyRow(c,b){const d=dueOf(b),df=d?diff(d):0;return`<div class="br"><div><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}${stockOf(c).some(e=>e.buyId===b.id)?' <span class="tag gold">📦 寄存</span>':''}</div><div>${b.st?`<span class="tag ${b.st==='unhappy'?'red':b.st==='rebuy'?'approved':'gold'}">${PS[b.st]}</span>`:'<span class="tag">尚未跟進</span>'}${d?` <span class="mut">下次 ${d}</span> <span class="tag ${cls(df)}">${when(df)}</span>`:''}</div><div class="bb">${b.done?'':`<button class="pri sm" data-a="fu" data-id="${c.id}" data-k="follow" data-b="${b.id}">跟進</button>`}<button class="sm" data-a="ebuy" data-id="${c.id}" data-b="${b.id}">✎ 編輯</button><button class="sm dg" data-a="bdel" data-id="${c.id}" data-b="${b.id}">✕</button></div>${histHTML(b)}</div>`}
+function buyRow(c,b){const d=dueOf(b),df=d?diff(d):0;return`<div class="br"><div><b>${esc(b.date||'')}</b> · ${esc(b.name)} ×${b.qty}${stockOf(c).some(e=>e.buyId===b.id)?' <span class="tag gold">📦 寄存</span>':''}</div><div>${stTag(b)}${d?` <span class="mut">下次 ${d}</span> <span class="tag ${cls(df)}">${when(df)}</span>`:''}</div><div class="bb">${b.done||SUP.has(b)?'':`<button class="pri sm" data-a="fu" data-id="${c.id}" data-k="follow" data-b="${b.id}">跟進</button>`}<button class="sm" data-a="ebuy" data-id="${c.id}" data-b="${b.id}">✎ 編輯</button><button class="sm dg" data-a="bdel" data-id="${c.id}" data-b="${b.id}">✕</button></div>${histHTML(b)}</div>`}
 const SKIPF=new Set(['name','callName','items','purchaseDate','member']);
 function infoOf(c){const d=c.d,r=[];if(d.account)r.push(['帳號 / 連結',d.account]);
  fields.filter(f=>!SKIPF.has(f.id)&&f.id!=='account'&&f.id!=='channel'&&f.type!=='items'&&f.type!=='member').forEach(f=>{if(d[f.id])r.push([f.label,d[f.id]])});
@@ -337,7 +388,7 @@ function drawList(){const L=list(),due=new Set(rems(custs).map(r=>r.c.id));
 const dayIn=(id,v)=>`<div class="stp"><button type="button" data-a="dstep" data-t="${id}" data-s="-1">−</button><input id="${id}" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${v}"><button type="button" data-a="dstep" data-t="${id}" data-s="1">＋</button><span class="mut">天</span></div><div class="qk">${[7,14,30,60,90].map(n=>`<button type="button" data-a="dset" data-t="${id}" data-s="${n}">${n}</button>`).join('')}</div>`;
 const dayVal=(id,def)=>Math.max(1,parseInt($('#'+id)?.value)||def);
 function pgx(v){const b=fctx.b;$('#pgx').innerHTML=v==='rebuy'?`<label>再購買日期</label><input type="date" id="x_d" value="${ymd(new Date())}"><label>數量</label><input id="x_q" type="text" inputmode="numeric" value="${b.qty}"><label>幾天後再跟進（可自行修改）</label>${dayIn('x_n',cycleOf(b)||30)}`
- :v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('x_n',7)}`:v==='noreply'?`<label>幾天後再提醒跟進（預設 7 天，可修改）</label>${dayIn('x_n',7)}`:'<p class="mut">這項產品之後不再提醒跟進。</p>'}
+ :v==='again'?`<label>幾天後再提醒跟進</label>${dayIn('x_n',7)}`:v==='noreply'?`<label>幾天後再提醒跟進（預設 7 天，可修改）</label>${dayIn('x_n',7)}`:v==='nextmonth'?`<label>下次跟進日期（預設為下個月的今天，可修改）</label><input type="date" id="x_nm" value="${addMonths(ymd(new Date()),1)}">`:v==='appliance'?`<p class="mut">代表這一次的跟進已完成，系統會跳到下一次的跟進時間。</p><label>幾天後進行下一次跟進（預設為產品週期，可修改）</label>${dayIn('x_n',cycleOf(b)||30)}`:'<p class="mut">這項產品之後不再提醒跟進。</p>'}
 const goLink=()=>{const t=$('#fmsg').value;navigator.clipboard?.writeText(t);openCh($('#fch').value,$('#fac').value,t)};
 function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x=>x.id===bid):null;fctx={c,b};
  openModal(`<h3>跟進 ${esc(c.d.name)}</h3>${b?`<div class="mut">${esc(b.date)} 購買 · ${esc(b.name)} ×${b.qty}</div>`:''}<label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>跟進文案（可直接修改）</label><textarea id="fmsg" rows="5">${esc(msg(c,kind,b))}</textarea>
@@ -350,6 +401,8 @@ function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x
   const n=dayVal('x_n',7),B=buysOf(custs.find(x=>x.id===id)||c).map(x=>({...x})),o=B.find(x=>x.id===b.id);
   const h={at:t,st:v};const nt=($('#fnote')?.value||'').trim();if(nt)h.note=nt;o.st=v;o.at=t;o.stop=v==='unhappy'?1:0;o.done=0;
   if(v==='again'||v==='noreply'){o.due=addDays(t,n);h.n=n}
+  if(v==='nextmonth'){const nd=$('#x_nm')?.value||addMonths(t,1);o.due=nd;h.n=Math.max(1,Math.round((new Date(nd+'T00:00:00')-new Date(t+'T00:00:00'))/864e5))}
+  if(v==='appliance'){o.due=addDays(t,n);h.n=n}
   if(v==='rebuy'){const dt=$('#x_d').value||t,q=Math.max(1,parseInt($('#x_q').value)||1);h.prev=o.date;h.buy=dt;h.n=n;o.date=dt;o.qty=q;o.due=addDays(dt,n)}
   o.hist=[...(o.hist||[]),h];
   try{await db.collection('customers').doc(id).update({buys:B});closeModal();toast('已記錄')}catch(e){toast('儲存失敗：'+e.message)}}}
@@ -447,7 +500,7 @@ function promoView(){$('#main').innerHTML=`<div class="card"><h3>新增當月促
 
 /* ---------- 匯出 ---------- */
 const who=()=>isAdmin?(filterUid==='all'?'全部下線':(users.find(u=>u.id===filterUid)?.realName||'')):me.realName;
-const stTxt=b=>b.st?PS[b.st]:'尚未跟進',stCol=b=>b.st==='unhappy'?'C0483F':b.st==='rebuy'?'2F8F6A':'8A6A22';
+const stTxt=b=>b.st?PS[b.st]:'尚未跟進',stCol=b=>stColorCode(b.st);
 function rowsX(){return list().slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).flatMap((c,gi)=>buysOf(c).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')).map((b,i)=>({c,b,i,gi})))}
 function cols(){const C=[{h:'顧客',v:x=>x.c.d.name,g:1},{h:'購買日期',v:x=>x.b.date||''},{h:'購買產品',v:x=>x.b.name+' ×'+x.b.qty},{h:'跟進進度',v:x=>stTxt(x.b)},{h:'下次跟進',v:x=>dueOf(x.b)||'—'}];if(isAdmin)C.unshift({h:'填寫者',v:x=>x.c.ownerName,g:1});return C}
 const totalT=r=>`共 ${new Set(r.map(x=>x.c.id)).size} 位顧客 · ${r.length} 筆購買`;
@@ -497,6 +550,9 @@ document.addEventListener('click',async e=>{
  if(a==='hsel'){homeSel=homeSel===t.dataset.k?'':t.dataset.k;return draw()}
  if(a==='osel'){const w=t.dataset.w,k=t.dataset.k;if(w==='home')homeOSel=homeOSel===k?'':k;else oppSel=oppSel===k?'':k;return draw()}
  if(a==='oquick')return oquick(id);
+ if(a==='fuall')return fuall(id);
+ if(a==='pushon')return pushEnable();
+ if(a==='pushoff')return pushDisable();
  if(a==='bskip'){const c=custs.find(x=>x.id===id);if(!c)return;const t0=ymd(new Date()),n=7;
   try{if(t.dataset.k==='renew')await db.collection('customers').doc(id).update({renewSkip:addDays(t0,n)});
    else{const B=buysOf(c).map(x=>({...x})),o=B.find(x=>x.id===t.dataset.b);if(!o)return;o.due=addDays(t0,n);o.hist=[...(o.hist||[]),{at:t0,st:'skip',n}];await db.collection('customers').doc(id).update({buys:B})}
