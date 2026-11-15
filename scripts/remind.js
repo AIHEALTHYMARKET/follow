@@ -39,7 +39,8 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     console.log(`測試推播已送出：${n} 個裝置`); return;
   }
   const buysOf = c => c.buys || (c.d.items || []).map((i, k) => ({ id: 'm' + k, pid: i.id, name: i.name, qty: i.qty, date: c.base || c.d.purchaseDate, cycle: i.cycle }));
-  const dueOf = b => { if (b.stop || b.done) return null; if (b.due) return b.due; const y = +(NM.get(b.pid)?.cycle ?? b.cycle); return y > 0 && b.date ? addDays(b.date, y) : null; };
+  const sentOf = b => { const h = (b.hist || []).slice(-1)[0]; return h && h.st === 'sent' ? h.at : null; };
+  const dueOf = b => { if (b.stop || b.done) return null; const sa = sentOf(b); if (sa) return addDays(sa, 2); if (b.due) return b.due; const y = +(NM.get(b.pid)?.cycle ?? b.cycle); return y > 0 && b.date ? addDays(b.date, y) : null; };
   const underCat = (id, s) => { while (id) { if (s.has(id)) return 1; id = NM.get(id)?.parent; } return 0; };
   const pMatch = (p, c) => { const a = new Set(p.cats || []), b = new Set(p.prods || []), all = !a.size && !b.size; return buysOf(c).some(x => !x.stop && (all || b.has(x.pid) || underCat(x.pid, a))); };
   const occOf = (f, v) => { if (!/^\d{4}-\d{2}-\d{2}$/.test(v || '')) return null; if (!f.yearly) return v; const y = +today.slice(0, 4), a = y + v.slice(4); return diff(a) >= -3 ? a : (y + 1) + v.slice(4); };
@@ -53,12 +54,17 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   for (const doc of cs.docs) {
     const c = doc.data(), d = c.d || {}, u = c.ownerUid;
     if (!users.has(u)) continue;
-    const BL = buysOf(c), lat = new Map();
+    const BL = buysOf(c).map(b => ({ ...b })), lat = new Map(), auto = [];
+    // 已發送跟進：第 2 天提醒更新進度；第 3 天仍未更新 → 自動轉為「再跟進」（7 天後）
+    for (const b of BL) { const sa = sentOf(b); if (!sa || b.stop || b.done || diff(addDays(sa, 3)) > 0) continue; const at = addDays(sa, 3); b.st = 'again'; b.at = at; b.due = addDays(sa, 10); b.hist = [...(b.hist || []), { at, st: 'again', n: 7, auto: 1, note: '系統自動：已發送跟進後第 3 天仍未更新進度，轉入再跟進（7 天後）' }]; auto.push(b); }
+    if (auto.length && c.buys) await doc.ref.update({ buys: BL });
+    for (const b of auto) { const df = diff(b.due); if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `產品跟進：${b.name}（系統已自動轉為再跟進）`, df }); }
     BL.forEach(b => { const k = b.pid || b.name; if (b.date && (!lat.has(k) || b.date > lat.get(k))) lat.set(k, b.date); });
     for (const b of BL) {
       if (b.date && lat.get(b.pid || b.name) > b.date) continue; // 已有較新的購買 = 自動判定已回購
+      if (auto.includes(b)) continue;
       const date = dueOf(b); if (!date) continue; const df = diff(date);
-      if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `產品跟進：${b.name}（${b.date || ''} 購買）`, df });
+      if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `${sentOf(b) ? '已發送跟進，請更新進度' : '產品跟進'}：${b.name}（${b.date || ''} 購買）`, df });
     }
     if (d.member && d.member.is && d.member.join) {
       let date = addDays(d.member.join, +cfg.renewDays); if (c.renewSkip && c.renewSkip > date) date = c.renewSkip; const df = diff(date);
