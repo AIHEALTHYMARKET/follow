@@ -20,6 +20,9 @@ const addDays = (s, n) => new Date((dn(s) + n) * 864e5).toISOString().slice(0, 1
 const diff = s => dn(s) - dn(today);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const when = n => n < 0 ? `逾期 ${-n} 天` : n === 0 ? '今天' : `還有 ${n} 天`;
+const hourMY = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', hourCycle: 'h23' }).format(new Date());
+const MORNING = hourMY < 12; // 09:00 這班才寄 Email（15:00、20:00 只推播）
+const memCycle = (m, rn) => { const [y, mo] = m.join.split('-').map(Number), ey = y + 1 + (+rn || 0), F = k => new Date(Date.UTC(ey, mo - 1 + k, 1)).toISOString().slice(0, 10); return { E: new Date(Date.UTC(ey, mo, 0)).toISOString().slice(0, 10), Dl: new Date(Date.UTC(ey, mo - 1 + 7, 0)).toISOString().slice(0, 10), st: [-1, 0, 3, 5, 6].map(F) }; };
 const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn: 1, yearly: 1, monthly: 1 };
 
 (async () => {
@@ -34,6 +37,10 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   if (!fl.exists || (!fl.data().bday && !F.some(f => f.id === 'birthday'))) F = [...F, BDAY];
   F = F.filter(f => f.on && f.remOn && f.type === 'date');
   const users = new Map(us.docs.map(d => [d.id, d.data()]));
+  if (process.env.BROADCAST_BODY) {
+    let n = 0; for (const [uid, u] of users) n += await push(uid, u, process.env.BROADCAST_TITLE || 'Unfinished跟進系統', process.env.BROADCAST_BODY);
+    console.log(`手動推播已送出：${n} 個裝置`); return;
+  }
   if (process.env.TEST_PUSH === '1') {
     let n = 0; for (const [uid, u] of users) n += await push(uid, u, 'Unfinished跟進系統', '這是一則測試推播，收到代表手機推播設定成功 🎉');
     console.log(`測試推播已送出：${n} 個裝置`); return;
@@ -67,25 +74,30 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
       if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `${sentOf(b) ? '已發送跟進，請更新進度' : '產品跟進'}：${b.name}（${b.date || ''} 購買）`, df });
     }
     if (d.member && d.member.is && d.member.join) {
-      let date = addDays(d.member.join, +cfg.renewDays); if (c.renewSkip && c.renewSkip > date) date = c.renewSkip; const df = diff(date);
-      if (df <= cfg.renewAhead) get(u).rows.push({ n: d.name, t: '會員續約', df });
+      // 到期日＝加入月份最後一天（加入後第2年）；到期前1個月、當月、到期後第3/5/6個月提醒；到期後6個月月底為最後續約日
+      const mc = memCycle(d.member, d.member.rn);
+      if (today <= mc.Dl) {
+        const cur = mc.st.filter(x => x <= today).pop();
+        if (cur && !(c.renewAt && c.renewAt >= cur) && !(c.renewSkip && c.renewSkip > today))
+          get(u).rows.push({ n: d.name, t: `會員續約（到期日 ${mc.E}，最後續約日 ${mc.Dl}）`, df: diff(mc.E) });
+      }
     }
     for (const f of F) {
       const o = occOf(f, d[f.id]); if (!o) continue; const df = diff(o);
       if (df <= 0 && (!f.yearly || df === 0) && (c.fSent || {})[f.id] !== o)
         get(u).rows.push({ n: d.name, t: `${f.id === 'birthday' ? '🎂 ' : '🔔 '}${f.label}`, df });
-      if (first && f.monthly && (d[f.id] || '').slice(5, 7) === mo)
+      if (first && MORNING && f.monthly && (d[f.id] || '').slice(5, 7) === mo)
         get(u).bd.push({ n: d.name, day: +d[f.id].slice(8, 10), label: f.id === 'birthday' ? '生日顧客' : f.label + '的顧客' });
     }
-    if (first) {
+    if (first && MORNING) {
       const m = new Map();
       const bids = new Set(buysOf(c).map(b => b.id));
       for (const e of (c.stock || []).filter(e => !e.buyId || bids.has(e.buyId))) { const k = e.pid || e.name, r = m.get(k) || { name: e.name, q: 0 }; r.q += e.type === 'out' ? -e.qty : e.qty; m.set(k, r); }
       const L = [...m.values()].filter(r => r.q > 0).map(r => `${r.name}×${r.q}`);
       if (L.length) get(u).stk.push(`${d.name}：${L.join('、')}`);
     }
-    for (const p of newPromos) if (pMatch(p.data(), c) && !(c.promoSent || {})[p.id]) get(u).promo.push(p.data().title);
-    for (const p of curPromos) if (pMatch(p.data(), c) && !(c.promoSent || {})[p.id] && !((c.promoSkip || {})[p.id] > today)) { const g = get(u), k = p.data().title; g.pp[k] = (g.pp[k] || 0) + 1; }
+    if (MORNING) for (const p of newPromos) if (pMatch(p.data(), c) && !(c.promoSent || {})[p.id]) get(u).promo.push(p.data().title);
+    if (MORNING) for (const p of curPromos) if (pMatch(p.data(), c) && !(c.promoSent || {})[p.id] && !((c.promoSkip || {})[p.id] > today)) { const g = get(u), k = p.data().title; g.pp[k] = (g.pp[k] || 0) + 1; }
   }
 
   for (const doc of os.docs) {
@@ -104,6 +116,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     g.rows.sort((a, b) => a.df - b.df);
     const promos = [...new Set(g.promo)];
     if (!g.rows.length && !g.bd.length && !promos.length && !g.stk.length) continue;
+    if (!MORNING && !g.rows.length) continue;
     let body = `<p>${esc(u.realName)} 你好：</p>`;
     if (g.bd.length) {
       g.bd.sort((a, b) => a.day - b.day);
@@ -114,11 +127,11 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     if (Object.keys(g.pp).length) body += `<p>🎁 本月促銷尚未發送：${Object.entries(g.pp).map(([k, v]) => `${esc(k)}（${v} 位顧客）`).join('、')}</p>`;
     if (promos.length) body += `<p>🎁 新促銷：${promos.map(esc).join('、')}，可到系統「提醒」頁發送給顧客。</p>`;
     const html = `<div style="font-family:'Noto Sans TC',sans-serif;max-width:560px;margin:auto;background:#f6f2ea;padding:24px"><div style="background:#1b2236;color:#e6d3a3;padding:16px 20px;border-radius:12px 12px 0 0;font-size:18px">◆ 顧客跟進提醒</div><div style="background:#fff;padding:20px;border-radius:0 0 12px 12px">${body}<p style="text-align:center;margin-top:22px"><a href="${esc(process.env.SITE_URL)}" style="background:#b08d4a;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none">進入系統跟進</a></p></div></div>`;
-    await tr.sendMail({ from: `Unfinished跟進系統 <${process.env.GMAIL_USER}>`, to: u.email, subject: `【跟進提醒】${g.bd.length ? '本月生日顧客＋' : ''}今天有 ${g.rows.length} 項需要處理`, html });
-    sent++;
+    if (MORNING) await tr.sendMail({ from: `Unfinished跟進系統 <${process.env.GMAIL_USER}>`, to: u.email, subject: `【跟進提醒】${g.bd.length ? '本月生日顧客＋' : ''}今天有 ${g.rows.length} 項需要處理`, html });
+    if (MORNING) sent++;
     const extra = [promos.length && `${promos.length} 則新促銷`, g.bd.length && '本月有顧客生日'].filter(Boolean);
-    pushed += await push(uid, u, 'Unfinished跟進系統', `${u.realName}，今天有 ${g.rows.length} 項待跟進${extra.length ? '、' + extra.join('、') : ''}，點擊進入系統`);
+    pushed += await push(uid, u, 'Unfinished跟進系統', `${u.realName}，${MORNING ? '今天有' : '目前還有'} ${g.rows.length} 項待跟進${extra.length ? '、' + extra.join('、') : ''}，點擊進入系統`);
   }
-  for (const p of newPromos) await p.ref.update({ emailed: true });
+  if (MORNING) for (const p of newPromos) await p.ref.update({ emailed: true });
   console.log(`完成：已寄出 ${sent} 封 Email、${pushed} 則手機推播`); // 不輸出顧客資料
 })().catch(e => { console.error(e.message); process.exit(1); });
