@@ -1,13 +1,21 @@
 name: daily-reminder
 on:
   schedule:
-    - cron: '0 1 * * *'   # UTC 01:00 = 馬來西亞／台灣 09:00
+    - cron: '0 1,7,12 * * *'   # UTC 01:00 / 07:00 / 12:00 = 馬來西亞 09:00（Email＋推播）、15:00、20:00（推播）
   workflow_dispatch:
     inputs:
       test:
         description: '只發送測試手機推播（不寄 Email）'
         type: boolean
         default: false
+      title:
+        description: '手動推播標題（可留空）'
+        type: string
+        default: ''
+      body:
+        description: '手動推播內容（填寫後只推播這則訊息，不寄 Email）'
+        type: string
+        default: ''
 jobs:
   send:
     runs-on: ubuntu-latest
@@ -23,4 +31,6 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          BROADCAST_TITLE: ${{ inputs.title }}
+          BROADCAST_BODY: ${{ inputs.body }}
           TEST_PUSH: ${{ inputs.test && '1' || '' }}
