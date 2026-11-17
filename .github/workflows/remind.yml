@@ -1,7 +1,7 @@
 name: daily-reminder
 on:
   schedule:
-    - cron: '0 1,7,12 * * *'   # UTC 01:00 / 07:00 / 12:00 = 馬來西亞 09:00（Email＋推播）、15:00、20:00（推播）
+    - cron: '7 1,7,12 * * *'   # UTC 01:07 / 07:07 / 12:07 = 馬來西亞 09:07（Email＋推播）、15:07、20:07（推播）。避開整點，GitHub 較不會漏跑
   workflow_dispatch:
     inputs:
       test:
@@ -20,10 +20,10 @@ jobs:
   send:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
       - run: npm install
       - run: node scripts/remind.js
         env:
