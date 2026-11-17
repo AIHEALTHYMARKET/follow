@@ -108,6 +108,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     else if (o.stage === 'demo') { const dt = (o.demoAt || '').slice(0, 10); if (dt && diff(dt) <= cfg.ahead) get(u).rows.push({ n: o.name, t: `🤝 展示計劃 ${(o.demoAt || '').replace('T', ' ')}`, df: diff(dt) }); }
     else if (o.stage === 'invite' || o.stage === 'follow') { if (o.due && diff(o.due) <= 0) get(u).rows.push({ n: o.name, t: `🤝 Opp ${o.stage === 'invite' ? '需再邀約（可一鍵發送再邀約講稿）' : '需跟進'}`, df: diff(o.due) }); }
   }
+  console.log(`班次：${MORNING ? '早上（寄 Email＋推播）' : '下午／晚上（只推播）'}，馬來西亞時間 ${hourMY} 點；已批准使用者 ${users.size} 位；有待辦的使用者 ${[...per.values()].filter(g => g.rows.length || g.bd.length || g.stk.length || g.promo.length).length} 位；已開啟推播的使用者 ${[...users.values()].filter(u => (u.fcmTokens || []).length).length} 位`);
   const tr = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
   const td = 'padding:10px;border-bottom:1px solid #e9e2d2';
   let sent = 0, pushed = 0;
