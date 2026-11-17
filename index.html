@@ -418,7 +418,7 @@ function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myLi
 /* ---------- 顧客頁（逐筆購買） ---------- */
 const nextOf=c=>buysOf(c).map(dueOf).filter(Boolean).sort()[0]||'';
 let cSel='';
-const lapsedOf=c=>{const D=buysOf(c).map(b=>b.date).filter(Boolean).sort(),l=D[D.length-1];return !!l&&l<=addDays(ymd(new Date()),-365)};
+const lapsedOf=c=>{const D=buysOf(c).map(b=>b.date).filter(Boolean).sort(),l=D[D.length-1];return !l||l<=addDays(ymd(new Date()),-365)};
 const prodCnt=c=>new Set(buysOf(c).map(b=>b.pid||b.name)).size;
 const custStat=()=>{const L=myList(),lp=L.filter(lapsedOf).length,ac=L.length-lp,g=+cfg.goal||20,pc=Math.min(100,Math.round(ac/g*100)),bx=(k,n,l)=>`<div class="st ${cSel===k?'on':''}" data-a="csel" data-k="${k}"><b>${n}</b>${l}</div>`;
  return`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px">${bx('all',L.length,'顧客總數')}${bx('active',ac,'有效顧客')}${bx('lapsed',lp,'1年以上未回購')}</div><div class="card"><div class="ch"><b>🎯 顧客目標進度</b><span class="sp"></span><span class="mut">${ac} / ${g} 位（不含 1 年以上未回購）</span></div><div style="height:12px;border-radius:8px;background:var(--line);overflow:hidden;margin-top:8px"><div style="width:${pc}%;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))"></div></div><div class="mut" style="margin-top:6px">已達成 ${pc}%${ac>=g?' 🎉 目標達成！':'，還差 '+(g-ac)+' 位'}${cSel?' · 目前顯示：'+({all:'全部顧客',active:'有效顧客',lapsed:'1年以上未回購'})[cSel]:'（點上方數字可展開名單）'}</div></div>`};
