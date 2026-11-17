@@ -56,6 +56,7 @@ html[data-theme=dark] .stp2.done{background:#1f3a31;color:#6fd3a9}
 <script>
 /* ===== ===== */
 const FB={apiKey:"AIzaSyAj2yhiiVg07faOhPVNYIrnzmXobrm8_xo",authDomain:"follow-2041f.firebaseapp.com",projectId:"follow-2041f",appId:"1:577807614922:web:a067e166e19baae7ae0533",messagingSenderId:"577807614922"};
+const IN_APP=/FBAN|FBAV|FB_IAB|Messenger|Instagram|Line\/|MicroMessenger|WhatsApp|TikTok/i.test(navigator.userAgent);
 const ADMIN_EMAIL="diabolo.weien@gmail.com";
 const VAPID_KEY="BOCe6DWGdX0BZcHRAitugOgsb1M64xTQ0oclUK08bJ1s6IlptJBgxYK8h7laNTjIUBrK-b1YIuyAYf5VNqKJTJk";
 /* ========================= */
@@ -97,7 +98,7 @@ const dl=(b,n)=>{const a=document.createElement('a');a.href=URL.createObjectURL(
 
 /* ---------- 登入流程 ---------- */
 auth.onAuthStateChanged(async u=>{
- if(!u)return $('#app').innerHTML=`<div class="auth"><div class="card"><h1>◆ Unfinished跟進系統</h1><p class="mut">請使用 Gmail 登入<br>首次使用需經管理員批准</p><button class="pri" data-a="login" style="width:100%;padding:12px">使用 Google 登入</button></div></div>`;
+ if(!u)return $('#app').innerHTML=`<div class="auth"><div class="card"><h1>◆ Unfinished跟進系統</h1><p class="mut">請使用 Gmail 登入<br>首次使用需經管理員批准</p>${IN_APP?`<div class="mut" style="color:var(--red);margin:10px 0">⚠ 你正在 Messenger／社群 App 內建瀏覽器中，Google 不允許在這裡登入。請點右上角「⋯」選「用瀏覽器開啟」，或複製連結貼到 Safari／Chrome。</div><button data-a="copylink" style="width:100%;margin-bottom:8px">📋 複製系統連結</button>`:''}<button class="pri" data-a="login" style="width:100%;padding:12px">使用 Google 登入</button><div class="mut" style="margin-top:10px;font-size:12px">iPhone 登入失敗？請用 Safari，並到 設定 → Safari → 關閉「防止跨網站追蹤」，再重試。</div></div></div>`;
  isAdmin=u.email===ADMIN_EMAIL;const ref=db.collection('users').doc(u.uid);let s=await ref.get();
  if(!s.exists){if(isAdmin){await ref.set({email:u.email,realName:'管理員',memberNo:'ADMIN',status:'approved',role:'admin',at:Date.now()});s=await ref.get()}else return regView(u)}
  me={uid:u.uid,...s.data()};
@@ -597,7 +598,8 @@ document.addEventListener('click',async e=>{
  if(a==='dstep'||a==='dset'){const el=$('#'+t.dataset.t);if(el){const cur=parseInt(el.value)||0;el.value=a==='dset'?t.dataset.s:Math.max(1,cur+(+t.dataset.s))}return}
  if(a==='wau'){const u=users.find(x=>x.id===id);if(u)window.open(wa(u,waText(u)),'_blank');return}
  if(a==='refresh')return location.reload();
- if(a==='login')return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(x=>toast(x.message));
+ if(a==='copylink'){const u=location.href.split('#')[0];try{await navigator.clipboard.writeText(u);toast('已複製連結，請貼到 Safari 或 Chrome 開啟',5000)}catch(e){prompt('請複製這個連結，到 Safari 或 Chrome 開啟：',u)}return}
+ if(a==='login')return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(x=>{if(x.code==='auth/popup-closed-by-user'||x.code==='auth/cancelled-popup-request')return;openModal(`<h3>登入被瀏覽器擋住了</h3><div class="mut">請依序嘗試：<br>1. 不要在 Messenger／LINE／Instagram 內開啟，改用 <b>Safari</b> 或 <b>Chrome</b> 開啟本頁。<br>2. iPhone：設定 → Safari → 關閉「防止跨網站追蹤」，並確認沒有開「封鎖所有 Cookie」，再重新登入。<br>3. 允許彈出視窗（網址列若出現被封鎖的提示，請選允許）。<br>4. 仍不行，可換 Chrome 或用電腦登入。</div><div class="mut" style="margin-top:8px;font-size:12px">${esc(x.message)}</div>`)});
  if(a==='out'){await auth.signOut();return location.reload()}
  if(a==='tab'){tab=id;return draw()}
  if(a==='oadd')return oForm();if(a==='oedit')return oForm(id);if(a==='ofu')return ofu(id);
