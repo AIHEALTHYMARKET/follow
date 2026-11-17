@@ -1,7 +1,5 @@
 name: daily-reminder
 on:
-  schedule:
-    - cron: '7 1,7,12 * * *'   # UTC 01:07 / 07:07 / 12:07 = 馬來西亞 09:07（Email＋推播）、15:07、20:07（推播）。避開整點，GitHub 較不會漏跑
   workflow_dispatch:
     inputs:
       test:
