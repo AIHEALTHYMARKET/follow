@@ -37,6 +37,19 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
   if (!fl.exists || (!fl.data().bday && !F.some(f => f.id === 'birthday'))) F = [...F, BDAY];
   F = F.filter(f => f.on && f.remOn && f.type === 'date');
   const users = new Map(us.docs.map(d => [d.id, d.data()]));
+  // 新用戶申請 → 推播給管理員（每位申請人只通知一次，用 adminNotified 標記）
+  const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'diabolo.weien@gmail.com';
+  const notifyPending = async () => {
+    const ps = await db.collection('users').where('status', '==', 'pending').get();
+    const fresh = ps.docs.filter(d => !d.data().adminNotified);
+    if (!fresh.length) return 0;
+    const names = fresh.map(d => d.data().realName || '新用戶').slice(0, 3).join('、') + (fresh.length > 3 ? ` 等 ${fresh.length} 位` : '');
+    let n = 0;
+    for (const [uid, u] of users) if (u.email === ADMIN_EMAIL || u.role === 'admin') n += await push(uid, u, '🆕 新用戶申請加入', `${names} 正在等待你審核，點擊進入系統批准`);
+    for (const d of fresh) await d.ref.update({ adminNotified: true });
+    return fresh.length;
+  };
+  if (process.env.PENDING_ONLY === '1') { const k = await notifyPending(); console.log(`待審核新申請：${k} 位（已推播給管理員）`); return; }
   if (process.env.BROADCAST_BODY) {
     let n = 0; for (const [uid, u] of users) n += await push(uid, u, process.env.BROADCAST_TITLE || 'Unfinished跟進系統', process.env.BROADCAST_BODY);
     console.log(`手動推播已送出：${n} 個裝置`); return;
@@ -109,6 +122,7 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
     else if (o.stage === 'invite' || o.stage === 'follow') { if (o.due && diff(o.due) <= 0) get(u).rows.push({ n: o.name, t: `🤝 Opp ${o.stage === 'invite' ? '需再邀約（可一鍵發送再邀約講稿）' : '需跟進'}`, df: diff(o.due) }); }
   }
   console.log(`班次：${MORNING ? '早上（寄 Email＋推播）' : '下午／晚上（只推播）'}，馬來西亞時間 ${hourMY} 點；已批准使用者 ${users.size} 位；有待辦的使用者 ${[...per.values()].filter(g => g.rows.length || g.bd.length || g.stk.length || g.promo.length).length} 位；已開啟推播的使用者 ${[...users.values()].filter(u => (u.fcmTokens || []).length).length} 位`);
+  const np = await notifyPending(); if (np) console.log(`待審核新申請：${np} 位（已推播給管理員）`);
   const tr = nodemailer.createTransport({ service: 'gmail', auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD } });
   const td = 'padding:10px;border-bottom:1px solid #e9e2d2';
   let sent = 0, pushed = 0;
