@@ -1,0 +1,21 @@
+name: pending-check
+on:
+  schedule:
+    - cron: '*/10 * * * *'   # 每 10 分鐘檢查一次有沒有新用戶申請（私有倉庫若超出免費額度，請改成 '*/30 * * * *'）
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: npm install
+      - run: node scripts/remind.js
+        env:
+          PENDING_ONLY: '1'
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SITE_URL: ${{ secrets.SITE_URL }}
