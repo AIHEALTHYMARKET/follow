@@ -112,7 +112,7 @@ async function start(){
  db.collection('promos').onSnapshot(s=>{promos=s.docs.map(d=>({id:d.id,...d.data()}));redraw()});
  
  const tabs=[['home','今日事項'],['cust','顧客'],['opp','Opp'],['stock','寄存'],['prog','進度'],['tpl','我的文案']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
- $('#app').innerHTML=`<header><span class="brand">◆ Unfinished跟進系統</span><span>${esc(me.realName)}${isAdmin?' · 管理員':''} <button class="ghost" data-a="theme">${curTheme()==='dark'?'☀':'🌙'}</button> <button class="ghost" data-a="out">登出</button></span></header><nav>${tabs.map(t=>`<a data-a="tab" data-id="${t[0]}">${t[1]}</a>`).join('')}</nav><main id="main"></main>`;
+ $('#app').innerHTML=`<header><span class="brand">◆ Unfinished跟進系統</span><span>${esc(me.realName)}${isAdmin?' · 管理員':''} <button class="ghost" data-a="refresh" title="重新整理">🔄</button> <button class="ghost" data-a="theme">${curTheme()==='dark'?'☀':'🌙'}</button> <button class="ghost" data-a="out">登出</button></span></header><nav>${tabs.map(t=>`<a data-a="tab" data-id="${t[0]}">${t[1]}</a>`).join('')}</nav><main id="main"></main>`;
  const base=db.collection('customers'),qy=isAdmin?base:base.where('ownerUid','==',me.uid);
  qy.onSnapshot(s=>{custs=s.docs.map(d=>({id:d.id,...d.data()}));autoAdv();if(['home','cust','stock','prog','opp'].includes(tab))redraw();if(!notified){notified=1;setTimeout(()=>{notify();setInterval(()=>notify(),36e5)},2500)}},e=>toast('讀取失敗：'+e.message));
  const ob=db.collection('opps');(isAdmin?ob:ob.where('ownerUid','==',me.uid)).onSnapshot(s=>{opps=s.docs.map(d=>({id:d.id,...d.data()}));if(['home','opp','prog'].includes(tab))redraw()},e=>toast('Opp 讀取失敗：'+e.message));
@@ -596,6 +596,7 @@ document.addEventListener('click',async e=>{
  const fcfg=()=>db.collection('config').doc('fields').set({list:fields,bday:1}).then(()=>toast('已儲存')).catch(x=>toast('失敗：'+x.message));
  if(a==='dstep'||a==='dset'){const el=$('#'+t.dataset.t);if(el){const cur=parseInt(el.value)||0;el.value=a==='dset'?t.dataset.s:Math.max(1,cur+(+t.dataset.s))}return}
  if(a==='wau'){const u=users.find(x=>x.id===id);if(u)window.open(wa(u,waText(u)),'_blank');return}
+ if(a==='refresh')return location.reload();
  if(a==='login')return auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(x=>toast(x.message));
  if(a==='out'){await auth.signOut();return location.reload()}
  if(a==='tab'){tab=id;return draw()}
