@@ -1,7 +1,5 @@
 name: pending-check
 on:
-  schedule:
-
   workflow_dispatch:
 jobs:
   check:
