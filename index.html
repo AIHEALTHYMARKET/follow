@@ -140,6 +140,10 @@ const mkBuy=(i,date,days)=>{const b={id:uid(),pid:i.id,name:i.name,qty:i.qty,dat
 function autoAdv(){const t=ymd(new Date());custs.forEach(c=>{if(c.ownerUid!==me.uid||!c.buys)return;let ch=0;const B=c.buys.map(b=>{const sa=sentOf(b);if(!sa||b.stop||b.done||addDays(sa,3)>t)return b;ch=1;const at=addDays(sa,3);return{...b,st:'again',at,due:addDays(sa,10),hist:[...(b.hist||[]),{at,st:'again',n:7,auto:1,note:'系統自動：已發送跟進後第 3 天仍未更新進度，轉入再跟進（7 天後）'}]}});if(ch)db.collection('customers').doc(c.id).update({buys:B}).catch(()=>{})})}
 function dues(c){const r=buysOf(c).map(b=>({c,b,date:dueOf(b),kind:'follow'})).filter(x=>x.date);
  const m=c.d.member;if(m&&m.is&&m.join){const mc=memCycle(m,m.rn),t=ymd(new Date());if(t<=mc.Dl){const cur=mc.st.filter(x=>x<=t).pop();if(cur&&!(c.renewAt&&c.renewAt>=cur)){let rd=cur;if(c.renewSkip&&c.renewSkip>rd)rd=c.renewSkip;r.push({c,date:rd,kind:'renew',exp:mc.E,dl:mc.Dl})}}}return r}
+function renewForm(id){const c=custs.find(x=>x.id===id),m=c&&c.d.member;if(!c||!m||!m.join)return;const[jy,jm]=m.join.split('-').map(Number),cur=memCycle(m,m.rn),cy=+cur.E.slice(0,4),t=ymd(new Date()),endOf=y=>new Date(Date.UTC(y,jm,0)).toISOString().slice(0,10);
+ let def=cy+1;while(endOf(def)<t)def++;const ys=[];for(let y=cy+1;y<=Math.max(def,cy+1)+2;y++)ys.push(y);
+ openModal(`<h3>會員已續約</h3><div class="mut">${esc(c.d.name)} · 加入 ${esc(m.join)}<br>目前系統到期日：<b>${cur.E}</b>。到期月份固定為 ${jm} 月，請選擇續約後新的到期年份（若之前漏登記，可直接選到現在有效的年份）。</div><label>新的到期日</label><select id="rn_y">${ys.map(y=>`<option value="${y}" ${y===def?'selected':''}>${y}-${String(jm).padStart(2,'0')}-${String(new Date(Date.UTC(y,jm,0)).getUTCDate()).padStart(2,'0')}</option>`).join('')}</select><div class="btns"><button class="pri" id="rn_ok">確認</button><button data-a="close">取消</button></div>`);
+ $('#rn_ok').onclick=()=>{const y=+$('#rn_y').value;db.collection('customers').doc(id).update({'d.member.rn':y-(jy+1),renewAt:ymd(new Date()),renewSkip:firebase.firestore.FieldValue.delete()}).then(()=>{closeModal();toast('已更新會員到期日')}).catch(x=>toast('失敗：'+x.message))}}
 const memCycle=(m,rn)=>{const[y,mo]=m.join.split('-').map(Number),ey=y+1+(+rn||0),F=k=>new Date(Date.UTC(ey,mo-1+k,1)).toISOString().slice(0,10);return{E:new Date(Date.UTC(ey,mo,0)).toISOString().slice(0,10),Dl:new Date(Date.UTC(ey,mo-1+7,0)).toISOString().slice(0,10),st:[-1,0,3,5,6].map(F)}};
 const myList=()=>custs.filter(c=>filterUid==='all'||c.ownerUid===filterUid);
 const rems=(L=myList())=>L.flatMap(dues).map(r=>({...r,df:diff(r.date)})).filter(r=>r.df<=(r.kind==='renew'?cfg.renewAhead:cfg.ahead)).sort((a,b)=>a.df-b.df);
@@ -447,7 +451,7 @@ function fu(id,kind,bid){const c=custs.find(x=>x.id===id),b=bid?buysOf(c).find(x
  ${kind==='renew'?'<div class="btns"><button id="fdone">② 已續約（到期月份不變，延長一年）</button></div>':`<label>② 跟進後的進度</label><div class="pgs">${Object.entries(PS).map(([k,n])=>`<label class="chk"><input type="radio" name="pg" value="${k}">${n}</label>`).join('')}</div><div id="pgx"></div><label>備註（選填，匯出進度會顯示）</label><input id="fnote"><div class="btns"><button class="pri" id="fdone">儲存進度</button></div>`}`);
  let sentLog=0;$('#fgo').onclick=()=>{goLink();if(sentLog)return;if(kind==='renew'){sentLog=1;db.collection('customers').doc(id).update({renewAt:ymd(new Date())});return}if(!b)return;sentLog=1;const B=buysOf(custs.find(x=>x.id===id)||c).map(x=>({...x})),o=B.find(x=>x.id===b.id);o.hist=[...(o.hist||[]),{at:ymd(new Date()),st:'sent'}];db.collection('customers').doc(id).update({buys:B})};
  $('#fdone').onclick=async()=>{const t=ymd(new Date());
-  if(kind==='renew'){const m0=(custs.find(x=>x.id===id)||c).d.member||{};await db.collection('customers').doc(id).update({'d.member.rn':(+m0.rn||0)+1,renewAt:t,renewSkip:firebase.firestore.FieldValue.delete()});closeModal();return toast('已記錄續約（到期月份不變，延長一年）')}
+  if(kind==='renew')return renewForm(id)
   const v=document.querySelector('[name=pg]:checked')?.value;if(!v)return toast('請先選擇跟進進度');
   const n=dayVal('x_n',7),B=buysOf(custs.find(x=>x.id===id)||c).map(x=>({...x})),o=B.find(x=>x.id===b.id);
   const h={at:t,st:v};const nt=($('#fnote')?.value||'').trim();if(nt)h.note=nt;o.st=v;o.at=t;o.stop=v==='unhappy'?1:0;o.done=0;
@@ -659,7 +663,7 @@ document.addEventListener('click',async e=>{
  if(a==='fu')return fu(id,t.dataset.k,t.dataset.b);
  if(a==='abuy')return abuy(id);
  if(a==='ctog'){const c=custs.find(x=>x.id===id),op=!!cOpen.get(id);cOpen.set(id,!op);return drawList()}
- if(a==='mren'){const c=custs.find(x=>x.id===id);if(!c||!confirm('確認這位會員已續約？到期月份不變，會延長一年。'))return;return db.collection('customers').doc(id).update({'d.member.rn':(+(c.d.member||{}).rn||0)+1,renewAt:ymd(new Date()),renewSkip:firebase.firestore.FieldValue.delete()}).then(()=>toast('已記錄續約'))}
+ if(a==='mren')return renewForm(id);
  if(a==='bcast')return bcast();
  if(a==='csel'){cSel=cSel===t.dataset.k?'':t.dataset.k;return custView()}
  if(a==='absave'){pushPending();if(!items.length)return toast('請先選擇產品並按「加入」');const c=custs.find(x=>x.id===id),dt=$('#ab_d').value||ymd(new Date());
