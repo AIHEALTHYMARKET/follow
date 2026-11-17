@@ -1,7 +1,7 @@
 name: pending-check
 on:
   schedule:
-    - cron: '*/10 * * * *'   # 每 10 分鐘檢查一次有沒有新用戶申請（私有倉庫若超出免費額度，請改成 '*/30 * * * *'）
+
   workflow_dispatch:
 jobs:
   check:
