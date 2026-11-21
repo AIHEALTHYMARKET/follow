@@ -176,6 +176,128 @@ html[data-theme=dark] .qk button{background:#1b2130;border-color:#2f3853}
 
 @media(max-width:600px){header{padding:11px 14px}.brand{font-size:18px;letter-spacing:.5px}.card{padding:15px 15px;border-radius:18px}.st b{font-size:26px}.mbox{padding:20px 18px;border-radius:22px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ================= 設計升級 v3：更豐富的層次、色彩與細節 ================= */
+:root{--tint-gold:#f6e7bd;--tint-rose:#fbdedb;--tint-grn:#d6efe2;--tint-blu:#dbe6f8;--tint-pur:#e7def5;--tint-ora:#fbe4cc}
+body{background:
+ radial-gradient(1100px 620px at 4% -10%,rgba(224,188,112,.34),transparent 62%),
+ radial-gradient(900px 560px at 104% 4%,rgba(96,116,190,.20),transparent 60%),
+ radial-gradient(800px 520px at 50% 112%,rgba(214,150,130,.14),transparent 62%),
+ url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23b08d4a' fill-opacity='.10'/%3E%3C/svg%3E"),
+ #f4eee2;background-attachment:fixed}
+
+/* 頂部：加入金色紋理與光澤 */
+header{background:
+ radial-gradient(500px 120px at 15% 0,rgba(230,211,163,.22),transparent 70%),
+ repeating-linear-gradient(115deg,rgba(255,255,255,.025) 0 2px,transparent 2px 9px),
+ linear-gradient(120deg,#0f1424 0%,#1b2440 55%,#2b3760 100%);box-shadow:0 10px 30px rgba(12,16,30,.35)}
+.brand{filter:drop-shadow(0 2px 6px rgba(230,200,120,.25))}
+
+/* 導覽：容器化膠囊 */
+nav{background:linear-gradient(180deg,rgba(255,253,248,.92),rgba(250,244,230,.88));padding:12px 16px}
+nav a{background:rgba(255,255,255,.55);border:1px solid #eadfc4;color:#6d7388;box-shadow:0 1px 2px rgba(27,34,54,.04)}
+nav a:hover{background:#fff;border-color:#d9c590;color:#1b2236;transform:translateY(-1px);box-shadow:0 6px 14px rgba(27,34,54,.08)}
+nav a.on{border-color:transparent}
+
+/* 卡片：金色頂部高光 + 內光 */
+.card{background:linear-gradient(180deg,#fffffc 0%,#fffaf0 100%);border:1px solid #eadfc4;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 4px rgba(27,34,54,.04),0 12px 30px rgba(120,95,40,.10)}
+.card::before{content:"";position:absolute;left:22px;right:22px;top:0;height:2px;border-radius:0 0 3px 3px;background:linear-gradient(90deg,transparent,rgba(214,180,108,.9),transparent);opacity:.75;pointer-events:none}
+.card:hover{box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 4px 8px rgba(27,34,54,.06),0 22px 44px rgba(120,95,40,.18);transform:translateY(-2px)}
+details.card[open]{border-color:#dcc78f;background:linear-gradient(180deg,#fffef8,#fff6df)}
+.ch[data-a=ctog]>b:first-child::before,.card>.ch>b:first-child:only-child::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--gg);margin-right:9px;vertical-align:1px;box-shadow:0 0 0 3px rgba(176,141,74,.22)}
+
+/* 統計方塊：每格不同色調 */
+.st{background:linear-gradient(165deg,#fffffc 0%,var(--tint-gold) 140%);border-color:#eadcb6;box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 10px 24px rgba(120,95,40,.12)}
+.st:nth-child(7n+2){background:linear-gradient(165deg,#fffffc 0%,var(--tint-rose) 150%);border-color:#f0cfca}.st:nth-child(7n+2)::before{background:linear-gradient(90deg,#e49a92,#c0483f)}
+.st:nth-child(7n+3){background:linear-gradient(165deg,#fffffc 0%,var(--tint-grn) 150%);border-color:#c5e4d3}.st:nth-child(7n+3)::before{background:linear-gradient(90deg,#74c4a2,#2f8f6a)}
+.st:nth-child(7n+5){background:linear-gradient(165deg,#fffffc 0%,var(--tint-pur) 150%);border-color:#d9cdee}.st:nth-child(7n+5)::before{background:linear-gradient(90deg,#b29bdc,#7a5cb8)}
+.st:nth-child(7n+6){background:linear-gradient(165deg,#fffffc 0%,var(--tint-blu) 150%);border-color:#c8d7f0}.st:nth-child(7n+6)::before{background:linear-gradient(90deg,#8fb0e8,#4a74c4)}
+.st:nth-child(7n+7){background:linear-gradient(165deg,#fffffc 0%,var(--tint-ora) 150%);border-color:#f0d6b8}.st:nth-child(7n+7)::before{background:linear-gradient(90deg,#efb27a,#d17a2c)}
+.st::after{content:"";position:absolute;right:-18px;bottom:-22px;width:70px;height:70px;border-radius:50%;background:radial-gradient(circle,rgba(176,141,74,.16),transparent 70%);pointer-events:none}
+.st.on{background:linear-gradient(165deg,#fffbe8,#f5e2b0);box-shadow:0 0 0 2px rgba(176,141,74,.5),0 14px 30px rgba(176,141,74,.28)}
+.st b{text-shadow:0 1px 0 rgba(255,255,255,.8)}
+
+/* 欄位標題加光澤 */
+.colh{position:relative;overflow:hidden}
+.colh::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 40%,rgba(255,255,255,.14) 50%,transparent 60%);transform:translateX(-100%);animation:sheen 5s ease-in-out infinite}
+@keyframes sheen{0%,60%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* 清單列：懸停高亮 */
+.br{padding:11px 8px;margin:0 -8px;border-radius:12px;border-top:1px dashed #e8dcbc;transition:background .2s}
+.br:hover{background:rgba(246,231,189,.38)}
+.row{border-radius:10px;padding:5px 6px;transition:background .2s}.row:hover{background:rgba(246,231,189,.35)}
+details.cat>summary{border-radius:10px;padding:7px 8px;transition:background .2s}details.cat>summary:hover{background:rgba(246,231,189,.4)}
+
+/* 按鈕與標籤 */
+button,.btn{background:linear-gradient(180deg,#ffffff,#f6efdc);border-color:#e3d5ae}
+button:hover{background:linear-gradient(180deg,#fff,#faf0d0)}
+button.pri::after{content:"";position:absolute}
+.tag{box-shadow:0 1px 0 rgba(255,255,255,.7) inset}
+.tag.approved::before,.tag.pending::before,.tag.disabled::before{content:"●";font-size:8px;margin-right:5px;vertical-align:1px}
+
+/* 輸入框：內陰影 */
+input,select,textarea{box-shadow:inset 0 1px 3px rgba(120,95,40,.08);background:#fffefa}
+
+/* 區塊標題 */
+.card h3,.mbox h3{color:#1f2740}
+.card h3::after{content:"";display:block;width:42px;height:3px;border-radius:3px;margin-top:4px;background:var(--gg)}
+
+/* 彈窗 */
+.mbox{background:linear-gradient(180deg,#fffffc,#fff7e3);border:1px solid #ecdcae}
+.mbox::before{content:"";position:absolute;left:24px;right:24px;top:0;height:3px;border-radius:0 0 4px 4px;background:var(--gg)}
+
+/* 登入頁：更華麗 */
+.auth{background:
+ radial-gradient(640px 420px at 18% 8%,rgba(230,190,110,.38),transparent 62%),
+ radial-gradient(700px 480px at 92% 92%,rgba(120,140,220,.30),transparent 62%),
+ repeating-linear-gradient(120deg,rgba(255,255,255,.025) 0 2px,transparent 2px 12px),
+ linear-gradient(160deg,#0d1226,#1c2646 60%,#2a3560)}
+.auth .card::before{left:30px;right:30px;height:3px;opacity:1}
+
+/* ================= 暗色模式強化 ================= */
+html[data-theme=dark] body{background:
+ radial-gradient(1000px 560px at 6% -8%,rgba(214,168,86,.20),transparent 62%),
+ radial-gradient(900px 560px at 100% 2%,rgba(86,110,210,.22),transparent 60%),
+ radial-gradient(800px 520px at 50% 115%,rgba(150,80,120,.14),transparent 62%),
+ url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28'%3E%3Ccircle cx='2' cy='2' r='1' fill='%23e6d3a3' fill-opacity='.07'/%3E%3C/svg%3E"),
+ #0a0d16;background-attachment:fixed}
+html[data-theme=dark] header{background:
+ radial-gradient(500px 120px at 15% 0,rgba(230,190,110,.20),transparent 70%),
+ repeating-linear-gradient(115deg,rgba(255,255,255,.02) 0 2px,transparent 2px 9px),
+ linear-gradient(120deg,#070a12 0%,#111830 60%,#1a2244 100%)}
+html[data-theme=dark] nav{background:linear-gradient(180deg,rgba(18,23,38,.9),rgba(13,17,29,.88))}
+html[data-theme=dark] nav a{background:rgba(255,255,255,.04);border-color:#2a3350;color:#a9b2c8;box-shadow:none}
+html[data-theme=dark] nav a:hover{background:rgba(214,180,108,.12);border-color:#5a4c2a;color:#f3e3b6}
+html[data-theme=dark] nav a.on{border-color:transparent}
+html[data-theme=dark] .card{background:linear-gradient(180deg,rgba(32,39,60,.92),rgba(20,25,40,.92));border:1px solid #2c3552;box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 14px 34px rgba(0,0,0,.45)}
+html[data-theme=dark] .card::before{background:linear-gradient(90deg,transparent,rgba(230,190,110,.85),transparent);opacity:.8}
+html[data-theme=dark] .card:hover{border-color:#5a4c2a;box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 22px 48px rgba(0,0,0,.6),0 0 0 1px rgba(214,180,108,.18),0 0 34px rgba(214,180,108,.10)}
+html[data-theme=dark] details.card[open]{border-color:#6a5a30;background:linear-gradient(180deg,rgba(40,44,62,.95),rgba(24,28,44,.95))}
+html[data-theme=dark] .card h3,html[data-theme=dark] .mbox h3{color:#f3e3b6}
+html[data-theme=dark] .st{background:linear-gradient(165deg,rgba(34,41,64,.95),rgba(22,27,44,.95));border-color:#2d3654;box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 12px 28px rgba(0,0,0,.45)}
+html[data-theme=dark] .st:nth-child(7n+2){background:linear-gradient(165deg,rgba(60,32,38,.9),rgba(26,22,36,.95));border-color:#52303a}
+html[data-theme=dark] .st:nth-child(7n+3){background:linear-gradient(165deg,rgba(28,58,50,.9),rgba(20,28,38,.95));border-color:#285044}
+html[data-theme=dark] .st:nth-child(7n+5){background:linear-gradient(165deg,rgba(48,38,76,.9),rgba(22,24,42,.95));border-color:#41386a}
+html[data-theme=dark] .st:nth-child(7n+6){background:linear-gradient(165deg,rgba(30,46,82,.9),rgba(20,26,44,.95));border-color:#2e4478}
+html[data-theme=dark] .st:nth-child(7n+7){background:linear-gradient(165deg,rgba(66,46,28,.9),rgba(26,24,34,.95));border-color:#5a4026}
+html[data-theme=dark] .st::after{background:radial-gradient(circle,rgba(230,190,110,.22),transparent 70%)}
+html[data-theme=dark] .st:hover{box-shadow:0 18px 38px rgba(0,0,0,.6),0 0 24px rgba(214,180,108,.16)}
+html[data-theme=dark] .st.on{background:linear-gradient(165deg,rgba(80,64,28,.95),rgba(40,34,20,.95));box-shadow:0 0 0 2px rgba(214,180,108,.55),0 0 30px rgba(214,180,108,.25)}
+html[data-theme=dark] .st b{text-shadow:0 2px 10px rgba(0,0,0,.4)}
+html[data-theme=dark] .br{border-top-color:#2c3552}html[data-theme=dark] .br:hover,html[data-theme=dark] .row:hover,html[data-theme=dark] details.cat>summary:hover{background:rgba(214,180,108,.08)}
+html[data-theme=dark] .mbox{background:linear-gradient(180deg,#1d2438,#141a2b);border:1px solid #3a3a2c}
+html[data-theme=dark] .auth{background:
+ radial-gradient(640px 420px at 18% 8%,rgba(230,170,90,.26),transparent 62%),
+ radial-gradient(700px 480px at 92% 92%,rgba(90,110,220,.30),transparent 62%),
+ repeating-linear-gradient(120deg,rgba(255,255,255,.02) 0 2px,transparent 2px 12px),
+ linear-gradient(160deg,#070a14,#121a36 60%,#1b2548)}
+html[data-theme=dark] input,html[data-theme=dark] select,html[data-theme=dark] textarea{box-shadow:inset 0 2px 6px rgba(0,0,0,.35)}
+html[data-theme=dark] button,html[data-theme=dark] .btn{background:linear-gradient(180deg,#232b42,#1a2034);border-color:#344060}
+html[data-theme=dark] button:hover{background:linear-gradient(180deg,#2a3350,#1f2640)}
+html[data-theme=dark] button.pri{background:var(--gg)}
+html[data-theme=dark] .ch[data-a=ctog]>b:first-child::before,html[data-theme=dark] .card>.ch>b:first-child:only-child::before{box-shadow:0 0 0 3px rgba(214,180,108,.25),0 0 10px rgba(214,180,108,.5)}
+html[data-theme=dark] .card div[style*="border-radius:8px"]{box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
+@media(prefers-reduced-motion:reduce){.colh::after{animation:none!important}}
 </style>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}catch(e){}</script></head>
 <body><div id="app"></div><div id="modal"><div class="mbox" id="mbox"></div></div><div id="toast"></div>
