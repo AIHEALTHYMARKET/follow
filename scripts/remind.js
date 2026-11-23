@@ -23,6 +23,7 @@ const when = n => n < 0 ? `逾期 ${-n} 天` : n === 0 ? '今天' : `還有 ${n}
 const hourMY = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kuala_Lumpur', hour: '2-digit', hourCycle: 'h23' }).format(new Date());
 const MORNING = hourMY < 12; // 09:00 這班才寄 Email（15:00、20:00 只推播）
 const memCycle = (m, rn) => { const [y, mo] = m.join.split('-').map(Number), ey = y + 1 + (+rn || 0), F = k => new Date(Date.UTC(ey, mo - 1 + k, 1)).toISOString().slice(0, 10); return { E: new Date(Date.UTC(ey, mo, 0)).toISOString().slice(0, 10), Dl: new Date(Date.UTC(ey, mo - 1 + 7, 0)).toISOString().slice(0, 10), st: [-1, 0, 3, 5, 6].map(F) }; };
+const instNext = p => { const paid = (p.pays || []).reduce((t, x) => t + (+x.amt || 0), 0), bal = (+p.total || 0) - paid; if (bal <= 0.005) return null; const k = Math.min(Math.floor(paid / (+p.per || 1) + 1e-9), (+p.n || 1) - 1), [y, m] = p.start.split('-').map(Number), dt = new Date(Date.UTC(y, m - 1 + k, 1)), yy = dt.getUTCFullYear(), mm = dt.getUTCMonth() + 1, last = new Date(Date.UTC(yy, mm, 0)).getUTCDate(); return { k: k + 1, bal, date: `${yy}-${String(mm).padStart(2, '0')}-${String(Math.min(+p.day || 1, last)).padStart(2, '0')}` }; };
 const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn: 1, yearly: 1, monthly: 1 };
 
 (async () => {
@@ -86,6 +87,10 @@ const BDAY = { id: 'birthday', label: '顧客生日', type: 'date', on: 1, remOn
       const date = dueOf(b); if (!date) continue; const df = diff(date);
       if (df <= cfg.ahead) get(u).rows.push({ n: d.name, t: `${sentOf(b) ? '已發送跟進，請更新進度' : '產品跟進'}：${b.name}（${b.date || ''} 購買）`, df });
     }
+    // 預約送貨：到了預約日（或逾期）仍未按「已完成」就提醒
+    for (const ap of (c.appts || [])) if (!ap.done) { const df = diff(ap.date); if (df <= 0) get(u).rows.push({ n: d.name, t: `預約送貨：${ap.note || ''}（${ap.date}${ap.time ? ' ' + ap.time : ''}），送達後請進系統按「已完成」`, df }); }
+    // 分期付款：本期到期日（或逾期）仍有尚欠就提醒
+    for (const p of (c.inst || [])) { const nx = instNext(p); if (nx && nx.date <= today && !(p.skipTo && p.skipTo > today)) get(u).rows.push({ n: d.name, t: `分期付款：${p.title || ''} 第 ${nx.k} 期（${nx.date}），尚欠 RM ${Math.round(nx.bal * 100) / 100}`, df: diff(nx.date) }); }
     if (d.member && d.member.is && d.member.join) {
       // 到期日＝加入月份最後一天（加入後第2年）；到期前1個月、當月、到期後第3/5/6個月提醒；到期後6個月月底為最後續約日
       const mc = memCycle(d.member, d.member.rn);
