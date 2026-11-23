@@ -298,6 +298,14 @@ html[data-theme=dark] button.pri{background:var(--gg)}
 html[data-theme=dark] .ch[data-a=ctog]>b:first-child::before,html[data-theme=dark] .card>.ch>b:first-child:only-child::before{box-shadow:0 0 0 3px rgba(214,180,108,.25),0 0 10px rgba(214,180,108,.5)}
 html[data-theme=dark] .card div[style*="border-radius:8px"]{box-shadow:inset 0 2px 4px rgba(0,0,0,.4)}
 @media(prefers-reduced-motion:reduce){.colh::after{animation:none!important}}
+
+/* v4：生日突出、Opp 置頂（手機） */
+.st.alert{border-color:#e4a09a!important;background:linear-gradient(165deg,#fff4f2,#fbd3cf)!important;animation:bd 1.6s ease-in-out infinite}
+.st.alert b{color:var(--red)}.st.alert::before{background:linear-gradient(90deg,#f0948b,#c0483f)!important;opacity:1;left:0;right:0}
+@keyframes bd{0%,100%{box-shadow:0 0 0 0 rgba(192,72,63,.45),0 10px 24px rgba(192,72,63,.18)}50%{box-shadow:0 0 0 7px rgba(192,72,63,0),0 14px 30px rgba(192,72,63,.32)}}
+html[data-theme=dark] .st.alert{border-color:#8a3f3a!important;background:linear-gradient(165deg,rgba(96,36,40,.95),rgba(44,22,34,.95))!important}
+html[data-theme=dark] .st.alert b{color:#ff9a90}
+@media(max-width:820px){.two>.col:nth-child(2){order:-1}}
 </style>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}catch(e){}</script></head>
 <body><div id="app"></div><div id="modal"><div class="mbox" id="mbox"></div></div><div id="toast"></div>
@@ -651,8 +659,22 @@ const cardsOf=list=>{const seen=new Set(),out=[];list.forEach(x=>{if(!isRem(x)){
 function fuall(cid){const c=custs.find(x=>x.id===cid),its=c?rems([c]).filter(r=>r.df<=0):[];if(!its.length)return toast('沒有待跟進項目');if(its.length===1)return fu(cid,its[0].kind,its[0].b?its[0].b.id:'');
  openModal(`<h3>合併跟進 ${esc(c.d.name)}（${its.length} 項）</h3><div class="mut">${its.map(itLabel).join('、')}</div><label>平台</label><select id="fch">${chOpts(c.d.channel)}</select><label>帳號 / 連結</label><input id="fac" value="${esc(c.d.account)}"><label>合併文案（可直接修改）</label><textarea id="fmsg" rows="8">${esc(mergeMsg(c,its))}</textarea><div class="btns"><button class="pri" id="fgo">① 複製文案並前往平台</button></div><p class="mut">一封訊息涵蓋全部項目（促銷不包含）。發送後請逐項記錄進度：</p>${its.map(r=>`<div class="ch" style="padding:5px 0;border-top:1px solid var(--line)"><span>${itLabel(r)}</span><span class="sp"></span><button class="sm" data-a="fu" data-id="${cid}" data-k="${r.kind}" data-b="${r.b?r.b.id:''}">記錄進度</button></div>`).join('')}`);
  let sent=0;$('#fgo').onclick=()=>{goLink();if(sent)return;sent=1;const t=ymd(new Date()),B=buysOf(custs.find(x=>x.id===cid)||c).map(x=>({...x}));its.filter(r=>r.b).forEach(r=>{const o=B.find(x=>x.id===r.b.id);if(o)o.hist=[...(o.hist||[]),{at:t,st:'sent'}]});db.collection('customers').doc(cid).update({buys:B,...(its.some(r=>r.kind==='renew')?{renewAt:t}:{})})}}
-function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),D=doneToday(L),
- A=[...R,...F,...P.map(x=>({...x,df:0,promo:1}))].sort((a,b)=>a.df-b.df),
+const renewList=L=>{const t=ymd(new Date());return L.filter(c=>c.d.member&&c.d.member.is&&c.d.member.join).map(c=>{const mc=memCycle(c.d.member,c.d.member.rn);return t>=mc.st[0]&&t<=mc.Dl?{c,date:t,kind:'renew',exp:mc.E,dl:mc.Dl,df:diff(mc.E)}:null}).filter(Boolean).sort((a,b)=>a.df-b.df)};
+const instDue=L=>{const t=ymd(new Date());return L.flatMap(c=>(c.inst||[]).map(p=>{const nx=instNext(p);return nx&&nx.date<=t&&!(p.skipTo&&p.skipTo>t)?{c,p,nx,df:diff(nx.date)}:null}).filter(Boolean)).sort((a,b)=>a.df-b.df)};
+const instCard=x=>{const bal=(+x.p.total||0)-paidOf(x.p),at=`data-id="${x.c.id}" data-i="${x.p.id}"`;return`<div class="card"><div class="ch"><b>${esc(x.c.d.name)}</b><span class="tag ${x.df<0?'red':'gold'}">💳 ${esc(x.p.title||'分期付款')} · 第 ${x.nx.k} 期 · ${when(x.df)}</span></div><div class="mut">本期應繳 ${RM(Math.min(+x.p.per||bal,bal))} · 每月 ${x.p.day} 號 · 尚欠 ${RM(bal)}${isAdmin?' · 填寫者 '+esc(x.c.ownerName):''}</div><div class="btns"><button class="pri" data-a="isend" ${at}>📨 一鍵發送提醒轉帳</button><button data-a="ipay" ${at}>＋ 記錄收款</button><button data-a="iskip" ${at}>⏭ 暫時略過 7 天</button></div></div>`};
+const apList=L=>L.flatMap(c=>(c.appts||[]).filter(a=>!a.done).map(a=>({c,a,df:diff(a.date)}))).sort((x,y)=>(x.a.date+(x.a.time||'')).localeCompare(y.a.date+(y.a.time||'')));
+const apCard=x=>{const b=buysOf(x.c).find(b=>b.id===x.a.buyId),at=`data-id="${x.c.id}" data-i="${x.a.id}"`;return`<div class="card"><div class="ch"><b>${esc(x.c.d.name)}</b><span class="tag ${x.df<0?'red':x.df===0?'gold':''}">📦 預約送貨 · ${esc(x.a.date)}${x.a.time?' '+esc(x.a.time):''} · ${when(x.df)}</span></div><div class="mut">${x.a.note?esc(x.a.note)+' · ':''}${b?'關聯：'+esc(b.name)+'（完成後自動重新計算 '+(b.cycle||30)+' 天後跟進）':'未關聯產品'}${isAdmin?' · 填寫者 '+esc(x.c.ownerName):''}</div><div class="btns"><button class="pri" data-a="adone" ${at}>✔ 已完成送貨</button><button data-a="aedit" ${at}>✎ 修改時間</button><button class="dg" data-a="adel" ${at}>取消預約</button></div></div>`};
+function apForm(cid,aid){const L=myList().slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')),c0=cid?custs.find(x=>x.id===cid):null,a0=(aid&&c0&&(c0.appts||[]).find(x=>x.id===aid))||{},
+ srt=c=>buysOf(c).slice().sort((x,y)=>(y.date||'').localeCompare(x.date||'')),
+ bo=(c,sel)=>'<option value="">（不關聯產品，完成後不自動排跟進）</option>'+(c?srt(c).map(b=>`<option value="${b.id}" ${b.id===sel?'selected':''}>${esc(b.date||'')} ${esc(b.name)} ×${b.qty}（跟進週期 ${b.cycle||30} 天）</option>`).join(''):'');
+ openModal(`<h3>${aid?'修改':'新增'}預約送貨</h3><label>顧客</label>${aid?`<div><b>${esc(c0.d.name)}</b></div>`:`<select id="ap_c">${L.map(c=>`<option value="${c.id}" ${c0&&c.id===c0.id?'selected':''}>${esc(c.d.name)}</option>`).join('')}</select>`}<label>送貨日期</label><input id="ap_d" type="date" value="${a0.date||addDays(ymd(new Date()),1)}"><label>時間（可留空）</label><input id="ap_t" type="time" value="${a0.time||''}"><label>備註（送什麼、地點等）</label><input id="ap_n" value="${esc(a0.note||'')}"><label>關聯購買產品（送達完成後，自動開始計算下次跟進天數）</label><select id="ap_b"></select><div class="btns"><button class="pri" id="ap_ok">儲存</button><button data-a="close">取消</button></div>`);
+ const cur=()=>aid?c0:custs.find(x=>x.id===($('#ap_c')?$('#ap_c').value:'')),fillB=sel=>{$('#ap_b').innerHTML=bo(cur(),sel)},first=c=>c&&srt(c)[0]?srt(c)[0].id:'';
+ fillB(aid?a0.buyId:first(cur()));if($('#ap_c'))$('#ap_c').onchange=()=>fillB(first(cur()));
+ $('#ap_ok').onclick=()=>{const c=cur();if(!c)return toast('請選擇顧客');const d=$('#ap_d').value;if(!d)return toast('請選擇送貨日期');const o={date:d,time:$('#ap_t').value,note:$('#ap_n').value.trim(),buyId:$('#ap_b').value},A=(c.appts||[]).map(x=>({...x}));
+  if(aid)Object.assign(A.find(x=>x.id===aid),o);else A.push({id:uid(),...o,done:false,at:Date.now()});
+  db.collection('customers').doc(c.id).update({appts:A}).then(()=>{closeModal();toast('已儲存預約')}).catch(x=>toast('失敗：'+x.message))}}
+function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myList(),D=doneToday(L).filter(x=>x.t.startsWith('🎁')||!x.t.endsWith(' 已發送')),RN=renewList(L),ID=instDue(L),AP=apList(L),APd=AP.filter(x=>x.df<=0),
+ A=[...R,...P.map(x=>({...x,df:0,promo:1}))].sort((a,b)=>a.df-b.df),
  todo=A.filter(x=>x.df<=0),over=A.filter(x=>x.df<0),soon=A.filter(x=>x.df>0),total=todo.length+D.length,pct=total?Math.round(D.length/total*100):100,
  nx=L.flatMap(dues).filter(r=>diff(r.date)>0).sort((a,b)=>a.date.localeCompare(b.date))[0],
  box=(k,n,l,c)=>`<div class="st ${homeSel===k?'on':''}" data-a="hsel" data-k="${k}"><b class="${c||''}">${n}</b>${l}</div>`,
@@ -660,14 +682,14 @@ function homeView(){const R=rems(),P=promoRems(),F=fRems(),BM=bdayMonth(),L=myLi
  empty=m=>`<div class="card" style="text-align:center;color:var(--mut)">${m}</div>`,
  doneCard=x=>`<div class="card" style="opacity:.75"><div class="ch"><span class="tag approved">✓ 已完成</span><b>${esc(x.c.d.name)}</b><span class="mut">${esc(x.t)}</span></div></div>`,
  custRow=c=>{const n=nextOf(c);return`<div class="card"><div class="ch" data-a="gocust" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${isAdmin?`<span class="mut">${esc(c.ownerName)}</span>`:''}<span class="sp"></span><span class="mut">${n?'下次跟進 '+n:'暫無待跟進'} ›</span></div></div>`},
- bm=fieldSec([],BM),
- T={all:['今日應跟進（含促銷、生日）',cardsOf(todo)+bm+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',cardsOf(todo)+bm,'今天的跟進都完成了 🎉'],over:['已逾期',cardsOf(over),'沒有逾期項目 👍'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
+ bm='',bd=fieldSec(F,BM),bdA=F.some(x=>x.df===0),
+ T={all:['今日應跟進（含促銷、生日）',cardsOf(todo)+bm+D.map(doneCard).join(''),'今天沒有需要跟進的項目 ✨'],todo:['今日未完成',cardsOf(todo)+bm,'今天的跟進都完成了 🎉'],over:['已逾期',cardsOf(over),'沒有逾期項目 👍'],soon:['即將到期',soon.map(card).join(''),'近期沒有即將到期的項目'],ren:['會員續約（還沒續約的會員）',RN.map(remCard).join(''),'目前沒有進入續約期的會員'],bday:['生日提醒',bd,'本月沒有顧客生日'],inst:['分期付款提醒（今日／逾期未付）',ID.map(instCard).join(''),'今天沒有需要提醒的分期付款 👍'],appt:['預約送貨（待完成）',AP.map(apCard).join(''),'目前沒有預約送貨'],cust:['全部顧客（點選可查看並跟進）',L.slice().sort((a,b)=>(a.d.name||'').localeCompare(b.d.name||'','zh-Hant')).map(custRow).join(''),'還沒有顧客資料']},
  sel=T[homeSel],
  sum=`<div class="card"><div class="ch"><b>今日進度</b><span class="sp"></span><span class="mut">${total?`${D.length} / ${total} 已完成`:'今天沒有待辦'}</span></div><div style="height:8px;border-radius:99px;background:var(--line);margin:8px 0;overflow:hidden"><div style="width:${pct}%;height:100%;background:var(--grn)"></div></div><div class="mut">${todo.length?`還有 ${todo.length} 項未完成`+(over.length?`（其中 ${over.length} 項已逾期）`:''):'🎉 今天的跟進都完成了'}${nx?` · 下一個跟進：${esc(nx.c.d.name)}${nx.b?' '+esc(nx.b.name):''}（${nx.date}，${when(diff(nx.date))}）`:''}</div></div>`;
  $('#main').innerHTML=(isAdmin?`<div class="bar">${fsel()}</div>`:'')+(isAdmin&&filterUid==='all'?monCard():'')
  +homeBanner()
- +`<div class="two"><section class="col"><div class="colh">👥 顧客跟進進度</div>${sum}<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(76px,1fr))">${box('all',total,'今日應跟進')}${box('todo',todo.length,'未完成','red')}${box('over',over.length,'逾期','red')}${box('soon',soon.length,'即將到期')}${box('cust',L.length,'顧客總數')}</div>`
- +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:({todo:todo.length,over:over.length,soon:soon.length})[homeSel]}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2])):'<div class="mut" style="text-align:center;padding:6px">點上方數字查看明細</div>')
+ +`<div class="two"><section class="col"><div class="colh">👥 顧客跟進進度</div>${sum}<div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(76px,1fr))">${box('all',total,'今日應跟進')}${box('todo',todo.length,'未完成','red')}${box('over',over.length,'逾期','red')}${box('soon',soon.length,'即將到期')}${box('cust',L.length,'顧客總數')}${box('ren',RN.length,'會員續約','gold')}<div class="st ${homeSel==='bday'?'on':''} ${bdA?'alert':''}" data-a="hsel" data-k="bday"><b class="gold">${F.length}</b>生日提醒${bdA?' 🎂':''}</div>${box('inst',ID.length,'分期付款',ID.length?'red':'')}${box('appt',APd.length,'預約提醒',APd.length?'gold':'')}</div><div class="btns" style="margin:0 0 10px"><button data-a="anew" data-id="">📅 新增預約送貨</button></div>`
+ +(sel?`<div class="ch"><h3 class="sec" style="margin:6px 0">${sel[0]}（${homeSel==='all'?`未完成 ${todo.length} · 已完成 ${D.length}`:homeSel==='cust'?L.length:({todo:todo.length,over:over.length,soon:soon.length,ren:RN.length,bday:F.length,inst:ID.length,appt:AP.length})[homeSel]}）</h3><span class="sp"></span><button data-a="hsel" data-k="${homeSel}">收起 ▴</button></div>`+(sel[1]||empty(sel[2])):'<div class="mut" style="text-align:center;padding:6px">點上方數字查看明細</div>')
  +`</section><section class="col"><div class="colh o">🤝 Opp 進度（邀約流程）</div>${oPanel(myOpps(),homeOSel,'home')}</section></div>`}
 
 /* ---------- 顧客頁（逐筆購買） ---------- */
@@ -691,7 +713,7 @@ const cOpen=new Map();
 function drawList(){const L=list(),due=new Set(rems(custs).map(r=>r.c.id));
  $('#list').innerHTML=L.map(c=>{const m=c.d.member,B=buysOf(c).slice().sort((a,b)=>(b.date||'').localeCompare(a.date||'')),op=!!cOpen.get(c.id),n=nextOf(c);
  return`<div class="card"><div class="ch" data-a="ctog" data-id="${c.id}" style="cursor:pointer"><b>${esc(c.d.name)}</b><span class="tag">${CH[c.d.channel]||''}</span>${m&&m.is?'<span class="tag gold">會員</span>':''}${opps.some(o=>o.custId===c.id)?'<span class="tag">🤝 來自 Opp</span>':''}${due.has(c.id)?'<span class="tag red">⏰ 需跟進</span>':''}${lapsedOf(c)?'<span class="tag">💤 1年以上未回購</span>':''}<span class="tag gold">🛍 ${prodCnt(c)} 樣產品</span><span class="sp"></span><span class="mut">${B.length} 筆購買 ${op?'▴':'▾'}</span></div>`
- +(op?`<div class="mut">稱呼：${esc(c.d.callName)}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>${infoOf(c)}<div style="margin-top:6px">${B.map(b=>buyRow(c,b)).join('')||'<div class="mut">尚無購買紀錄</div>'}</div>${stockHTML(c)}<div class="btns"><button class="pri" data-a="abuy" data-id="${c.id}">＋ 新增購買</button>${m&&m.is&&m.join?`<button data-a="mren" data-id="${c.id}">✔ 會員已續約</button>`:''}<button data-a="ed" data-id="${c.id}">編輯顧客</button><button class="dg" data-a="rm" data-id="${c.id}">刪除</button><button data-a="ctog" data-id="${c.id}">收起 ▴</button></div>`
+ +(op?`<div class="mut">稱呼：${esc(c.d.callName)}${isAdmin?' · 填寫者 '+esc(c.ownerName):''}</div>${infoOf(c)}<div style="margin-top:6px">${B.map(b=>buyRow(c,b)).join('')||'<div class="mut">尚無購買紀錄</div>'}</div>${stockHTML(c)}<div class="btns"><button class="pri" data-a="abuy" data-id="${c.id}">＋ 新增購買</button><button data-a="anew" data-id="${c.id}">📅 預約送貨</button>${m&&m.is&&m.join?`<button data-a="mren" data-id="${c.id}">✔ 會員已續約</button>`:''}<button data-a="ed" data-id="${c.id}">編輯顧客</button><button class="dg" data-a="rm" data-id="${c.id}">刪除</button><button data-a="ctog" data-id="${c.id}">收起 ▴</button></div>`
  :`<div class="mut" style="margin-top:4px">${n?'下次跟進 '+n+' · '+when(diff(n)):'暫無待跟進'}</div>`)+'</div>'}).join('')||'<p class="mut" style="text-align:center">還沒有顧客資料</p>'}
 
 /* ---------- 跟進視窗 ---------- */
@@ -920,6 +942,13 @@ document.addEventListener('click',async e=>{
  if(a==='ctog'){const c=custs.find(x=>x.id===id),op=!!cOpen.get(id);cOpen.set(id,!op);return drawList()}
  if(a==='mren')return renewForm(id);
  if(a==='bcast')return bcast();
+ if(a==='anew')return apForm(id||'','');
+ if(a==='aedit')return apForm(id,t.dataset.i);
+ if(a==='adel'){if(!confirm('取消這筆預約？'))return;const c=custs.find(x=>x.id===id);return db.collection('customers').doc(id).update({appts:(c.appts||[]).filter(x=>x.id!==t.dataset.i)}).then(()=>toast('已取消預約'))}
+ if(a==='adone'){const c=custs.find(x=>x.id===id),ap=c&&(c.appts||[]).find(x=>x.id===t.dataset.i);if(!ap)return;const t0=ymd(new Date()),upd={appts:c.appts.map(x=>x.id===ap.id?{...x,done:true,doneAt:t0}:x)},b=ap.buyId?buysOf(c).find(x=>x.id===ap.buyId):null;let msg='已完成送貨';
+  if(b){const n=+b.cycle||30,due=addDays(t0,n);upd.buys=buysOf(c).map(x=>({...x})).map(x=>x.id===b.id?{...x,st:'again',at:t0,due,stop:false,hist:[...(x.hist||[]),{at:t0,st:'again',n,note:'已送貨完成，重新計算下次跟進（'+n+' 天後）'}]}:x);msg=`已完成送貨，${n} 天後（${due}）再跟進`}
+  return db.collection('customers').doc(id).update(upd).then(()=>toast(msg,5000)).catch(x=>toast('失敗：'+x.message))}
+ if(a==='iskip'){const c=custs.find(x=>x.id===id);return db.collection('customers').doc(id).update({inst:(c.inst||[]).map(x=>x.id===t.dataset.i?{...x,skipTo:addDays(ymd(new Date()),7)}:x)}).then(()=>toast('已暫時略過，7 天後再提醒'))}
  if(a==='csel'){cSel=cSel===t.dataset.k?'':t.dataset.k;return custView()}
  if(a==='absave'){pushPending();if(!items.length)return toast('請先選擇產品並按「加入」');const c=custs.find(x=>x.id===id),dt=$('#ab_d').value||ymd(new Date());
   const NB=items.map(i=>mkBuy(i,dt)),U={buys:[...buysOf(c),...NB]};const SK=NB.flatMap((b,k)=>{const q=Math.min(items[k].dep||0,b.qty);return q>0?[{id:uid(),date:dt,pid:b.pid,name:b.name,qty:q,type:'in',note:'購買寄存',buyId:b.id,at:Date.now()}]:[]});if(SK.length)U.stock=[...stockOf(c),...SK];
