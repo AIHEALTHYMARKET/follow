@@ -306,6 +306,24 @@ html[data-theme=dark] .card div[style*="border-radius:8px"]{box-shadow:inset 0 2
 html[data-theme=dark] .st.alert{border-color:#8a3f3a!important;background:linear-gradient(165deg,rgba(96,36,40,.95),rgba(44,22,34,.95))!important}
 html[data-theme=dark] .st.alert b{color:#ff9a90}
 @media(max-width:820px){.two>.col:nth-child(2){order:-1}}
+
+/* 獎勵審核 */
+.rwhero{background:linear-gradient(135deg,#171d30,#2c3756 70%,#3b3a2a)!important;color:#f3ead0;border-color:#5a4c2a!important;overflow:hidden}
+.rwhero .mut{color:#b9c0d4}.rwhero::after{content:"🏆";position:absolute;right:14px;top:6px;font-size:64px;opacity:.12}
+.rwt{font-family:'Cormorant Garamond','Noto Sans TC',serif;font-size:26px;font-weight:600;color:#f3e3b6;letter-spacing:.5px}
+.rwc{margin:6px 0 12px;color:#e5dcc3;line-height:1.7}
+.rwp{display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;color:#cfd5e6}.rwp b{font-size:20px;color:#f3e3b6}
+.rwbar{height:12px;border-radius:99px;background:rgba(255,255,255,.12);overflow:hidden;margin:8px 0}.rwbar div{height:100%;border-radius:99px;background:linear-gradient(90deg,#d6b46c,#f3e3b6);box-shadow:0 0 14px rgba(230,200,120,.6);transition:width .6s}
+.rwcheer{font-weight:500;color:#fff;margin-top:6px}.rwcheer2{color:#e6d3a3;font-size:13px;margin-top:2px}
+.rwms{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 4px}
+.rwm{min-width:62px;text-align:center;border-radius:14px;padding:8px 10px;font-size:12px;display:inline-flex;flex-direction:column;align-items:center;gap:1px;border:1px solid transparent}
+.rwm b{font-size:13px}.rwm span{font-size:20px;line-height:1.1;font-weight:700}.rwm i{font-style:normal;font-size:11px;opacity:.9}
+.rwm.ok{background:linear-gradient(180deg,#43b88a,#2a8f69);color:#fff;box-shadow:0 6px 14px rgba(42,143,105,.4)}
+.rwm.no{background:linear-gradient(180deg,#ec7a70,#c8443a);color:#fff;box-shadow:0 6px 14px rgba(200,68,58,.35)}
+.rwm.wait{background:linear-gradient(180deg,#f3d58a,#d9a93f);color:#4a3508}
+.rwm.future{background:rgba(160,166,184,.25);color:#a8aebf;border-color:rgba(160,166,184,.35)}
+.rwleg{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px;color:#b9c0d4;margin-top:8px}.rwleg .rwm{min-width:0;padding:1px 8px;border-radius:8px;box-shadow:none;margin-left:6px}.rwleg .rwm span{font-size:12px}
+:root .card:not(.rwhero) .rwm.future{color:#7d8397}
 </style>
 <script>try{document.documentElement.dataset.theme=localStorage.getItem('theme')||(matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light')}catch(e){}</script></head>
 <body><div id="app"></div><div id="modal"><div class="mbox" id="mbox"></div></div><div id="toast"></div>
@@ -375,14 +393,53 @@ async function start(){
  await new Promise(res=>{let first=1;db.collection('config').onSnapshot(s=>{s.docs.forEach(d=>{const x=d.data();if(d.id==='fields'&&x.list){fields=x.list;if(!x.bday&&!fields.some(f=>f.id==='birthday')){const k=fields.findIndex(f=>f.id==='items');fields.splice(k<0?fields.length:k,0,JSON.parse(JSON.stringify(BDAY)))}}if(d.id==='catalog'&&x.nodes){nodes=x.nodes;idx()}if(d.id==='settings')cfg={...DEF_CFG,...x}});if(first){first=0;res()}else redraw()},e=>{toast('讀取設定失敗：'+e.message);res()})});
  db.collection('promos').onSnapshot(s=>{promos=s.docs.map(d=>({id:d.id,...d.data()}));redraw()});
  
- const tabs=[['home','今日事項'],['cust','顧客'],['opp','Opp'],['stock','寄存'],['prog','進度'],['tpl','我的文案']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
+ const tabs=[['home','今日事項'],['cust','顧客'],['opp','Opp'],['stock','寄存'],['prog','進度'],['rw','獎勵審核'],['tpl','我的文案']].concat(isAdmin?[['mem','成員審核'],['promo','當月促銷'],['fld','欄位設定'],['cat','產品目錄'],['set','系統設定']]:[]);
  $('#app').innerHTML=`<header><span class="brand">◆ Unfinished跟進系統</span><span>${esc(me.realName)}${isAdmin?' · 管理員':''} <button class="ghost" data-a="refresh" title="重新整理">🔄</button> <button class="ghost" data-a="theme">${curTheme()==='dark'?'☀':'🌙'}</button> <button class="ghost" data-a="out">登出</button></span></header><nav>${tabs.map(t=>`<a data-a="tab" data-id="${t[0]}">${t[1]}</a>`).join('')}</nav><main id="main"></main>`;
  const base=db.collection('customers'),qy=isAdmin?base:base.where('ownerUid','==',me.uid);
  qy.onSnapshot(s=>{custs=s.docs.map(d=>({id:d.id,...d.data()}));autoAdv();if(['home','cust','stock','prog','opp'].includes(tab))redraw();},e=>toast('讀取失敗：'+e.message));
  const ob=db.collection('opps');(isAdmin?ob:ob.where('ownerUid','==',me.uid)).onSnapshot(s=>{opps=s.docs.map(d=>({id:d.id,...d.data()}));if(['home','opp','prog'].includes(tab))redraw()},e=>toast('Opp 讀取失敗：'+e.message));
+ const rb=db.collection('rewards');(isAdmin?rb:rb.where('ownerUid','==',me.uid)).onSnapshot(s=>{rewards=s.docs.map(d=>({id:d.id,...d.data()}));rwErr='';if(tab==='rw')redraw()},e=>{rwErr=e.message;if(tab==='rw')redraw()});
  if(isAdmin)db.collection('users').onSnapshot(s=>{users=s.docs.map(d=>({id:d.id,...d.data()}));if(tab==='mem'||tab==='home')redraw()});
  draw();pushAuto();touchVisit()}
-const draw=()=>{const ok=['home','cust','opp','stock','prog','tpl'].concat(isAdmin?['mem','promo','fld','cat','set']:[]);if(!ok.includes(tab))tab='home';try{localStorage.setItem('tab',tab)}catch(e){}document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.id===tab));({home:homeView,cust:custView,mem:memView,promo:promoView,opp:oppView,stock:stockView,prog:progView,tpl:tplView,fld:fldView,cat:catView,set:setView})[tab]()};
+const draw=()=>{const ok=['home','cust','opp','stock','prog','rw','tpl'].concat(isAdmin?['mem','promo','fld','cat','set']:[]);if(!ok.includes(tab))tab='home';try{localStorage.setItem('tab',tab)}catch(e){}document.querySelectorAll('nav a').forEach(a=>a.classList.toggle('on',a.dataset.id===tab));({home:homeView,cust:custView,mem:memView,promo:promoView,opp:oppView,stock:stockView,prog:progView,rw:rwView,tpl:tplView,fld:fldView,cat:catView,set:setView})[tab]()};
+
+/* ---------- 獎勵審核 ---------- */
+let rewards=[],rwErr='';
+const RW=()=>({pvMin:2000,refMin:2,...(cfg.reward||{})});
+const monthsOf=(a,b)=>{const o=[];if(!a||!b||a>b)return o;let[y,m]=a.split('-').map(Number);const[y2,m2]=b.split('-').map(Number);while((y<y2||(y===y2&&m<=m2))&&o.length<36){o.push(y+'-'+String(m).padStart(2,'0'));if(++m>12){m=1;y++}}return o};
+const mEnd=m=>{const[y,mo]=m.split('-').map(Number);return new Date(Date.UTC(y,mo,0)).toISOString().slice(0,10)};
+const rwDoc=(uid,m)=>rewards.find(r=>r.ownerUid===uid&&r.month===m);
+const rwOk=(d,R)=>!!d&&(+d.pv||0)>=(+R.pvMin)&&(+d.n||0)>=(+R.refMin);
+const rwSt=(uid,m,R)=>{const d=rwDoc(uid,m);if(d)return rwOk(d,R)?'ok':'no';return ymd(new Date())>=mEnd(m)?'wait':'future'};
+const rwChips=(uid,R,ms)=>`<div class="rwms">${ms.map(m=>{const k=rwSt(uid,m,R),ic={ok:'✓',no:'✕',wait:'✎',future:'·'}[k],tx={ok:'已達標',no:'未達標',wait:'待填寫',future:'尚未到'}[k];return`<div class="rwm ${k}" title="${m} ${tx}"><b>${+m.slice(5)}月</b><span>${ic}</span><i>${tx}</i></div>`}).join('')}</div>`;
+const RW_CHEER=['每一次填寫，都是在記錄你的成長 🌱','堅持就是最大的實力，繼續往前！💪','你離目標比昨天更近了一步 ✨','穩定累積，成果自然會來 🏆','相信自己，你一定做得到！🔥'];
+const rwCheer=(uid,R,ms)=>{const ok=ms.filter(m=>rwSt(uid,m,R)==='ok').length,need=+R.needMonths||ms.length,left=ms.filter(m=>['future','wait'].includes(rwSt(uid,m,R))).length,gap=need-ok;
+ if(gap<=0)return`🎉 恭喜！你已經達成「${esc(R.title||'獎勵')}」的達標條件，太棒了！`;
+ if(gap>left)return`💪 這一期剩下的月份不夠達標了，但每一個月的努力都算數。調整節奏，下一期一起衝刺！`;
+ if(gap===1)return`🔥 只差最後 1 個月就達標了！加油，你一定做得到！`;
+ return`✨ 還差 ${gap} 個月達標，還有 ${left} 個月可以努力。每月 PV ≥ ${R.pvMin} 且推薦 ≥ ${R.refMin} 位，穩穩往前走！`};
+function rwView(){const R=RW(),ms=monthsOf(R.start,R.end),uid=me.uid,need=+R.needMonths||ms.length,ok=ms.filter(m=>rwSt(uid,m,R)==='ok').length,pc=need?Math.min(100,Math.round(ok/need*100)):0,tday=ymd(new Date());
+ let h=rwErr?`<div class="card" style="border-color:#e4a09a"><b>⚠ 獎勵資料讀取失敗</b><div class="mut">${esc(rwErr)}<br>請管理員在 Firestore 規則加入 rewards 集合的權限（見說明）。</div></div>`:'';
+ if(!ms.length)h+=`<div class="card" style="text-align:center"><h3>🏆 獎勵審核</h3><div class="mut">${isAdmin?'請在下方設定獎勵期限。':'管理員尚未設定獎勵期限，敬請期待！'}</div></div>`;
+ else{
+  h+=`<div class="card rwhero"><div class="rwt">🏆 ${esc(R.title||'獎勵')}</div>${R.content?`<div class="rwc">${esc(R.content).replace(/\n/g,'<br>')}</div>`:''}<div class="rwp"><span>達標進度</span><b>${ok} / ${need} 個月</b></div><div class="rwbar"><div style="width:${pc}%"></div></div><div class="rwcheer">${rwCheer(uid,R,ms)}</div>${R.cheer?`<div class="rwcheer2">${esc(R.cheer)}</div>`:`<div class="rwcheer2">${RW_CHEER[new Date().getDate()%RW_CHEER.length]}</div>`}<div class="mut" style="margin-top:8px">獎勵期限：${R.start} ～ ${R.end} · 每月達標條件：PV ≥ ${R.pvMin}、推薦 ABO ≥ ${R.refMin} 位 · 需累積 ${need} 個月達標</div>${rwChips(uid,R,ms)}<div class="rwleg"><span class="rwm ok"><span>✓</span></span>達標<span class="rwm no"><span>✕</span></span>未達標<span class="rwm wait"><span>✎</span></span>待填寫<span class="rwm future"><span>·</span></span>尚未到</div></div>`;
+  h+=`<h3 class="sec">📝 每月填寫</h3>`+ms.map(m=>{const d=rwDoc(uid,m),k=rwSt(uid,m,R),can=!!d||tday>=mEnd(m);return`<div class="card"><div class="ch"><b>${m.slice(0,4)} 年 ${+m.slice(5)} 月</b><span class="tag ${k==='ok'?'approved':k==='no'?'red':k==='wait'?'gold':''}">${{ok:'✓ 已達標',no:'✕ 未達標',wait:'待填寫',future:'尚未到'}[k]}</span><span class="sp"></span>${can?`<button class="${d?'':'pri'} sm" data-a="rwfill" data-m="${m}">${d?'✎ 編輯':'＋ 填寫'}</button>`:`<span class="mut">${mEnd(m)} 起可填寫</span>`}</div>${d?`<div class="mut" style="margin-top:6px">本月 PV：<b style="color:var(--ink)">${d.pv}</b>${(+d.pv)>=(+R.pvMin)?' ✓':' ✕'} · 推薦 ABO：<b style="color:var(--ink)">${d.n}</b> 位${(+d.n)>=(+R.refMin)?' ✓':' ✕'}<br>會員編號：${(d.ids||[]).map(esc).join('、')||'—'}</div>`:''}</div>`}).join('')}
+ if(isAdmin){
+  h+=`<details class="card" ${ms.length?'':'open'}><summary style="cursor:pointer"><b>⚙ 獎勵設定（管理員）</b></summary><label>獎勵開始月份</label><input id="rs_s" type="month" value="${R.start||''}"><label>獎勵結束月份</label><input id="rs_e" type="month" value="${R.end||''}"><label>每月達標：PV 至少</label><input id="rs_pv" type="number" value="${R.pvMin}"><label>每月達標：推薦 ABO 至少（人）</label><input id="rs_ref" type="number" value="${R.refMin}"><label>整個獎勵需要幾個月達標</label><input id="rs_need" type="number" value="${R.needMonths||''}" placeholder="例如 3"><label>達標獎勵標題</label><input id="rs_t" value="${esc(R.title||'')}"><label>達標獎勵內容</label><textarea id="rs_c" rows="4">${esc(R.content||'')}</textarea><label>自訂鼓勵語（可留空，留空會自動輪播）</label><input id="rs_ch" value="${esc(R.cheer||'')}"><div class="btns"><button class="pri" data-a="rwsave">儲存獎勵設定</button></div></details>`;
+  const U=users.filter(u=>u.status==='approved');
+  h+=`<h3 class="sec">👥 所有成員達標狀況</h3>`+(ms.length?U.map(u=>{const o=ms.filter(m=>rwSt(u.id,m,R)==='ok').length;return`<details class="card"><summary style="cursor:pointer"><b>${esc(u.callName||u.realName)}</b> <span class="mut">${esc(u.memberNo||'')}</span> <span class="tag ${o>=need?'approved':'gold'}">${o} / ${need} 個月</span></summary>${rwChips(u.id,R,ms)}${ms.map(m=>{const d=rwDoc(u.id,m);return d?`<div class="br"><div><b>${m}</b> · PV ${d.pv} · 推薦 ${d.n} 位</div><div class="mut">${(d.ids||[]).map(esc).join('、')}</div></div>`:''}).join('')}</details>`}).join('')||'<div class="mut">尚無成員</div>':'<div class="mut">設定獎勵期限後，這裡會顯示每位成員的達標狀況。</div>');
+ }
+ $('#main').innerHTML=h}
+function rwForm(m){const R=RW(),d=rwDoc(me.uid,m)||{};let vals=[...(d.ids||[])];
+ openModal(`<h3>${m.slice(0,4)} 年 ${+m.slice(5)} 月 獎勵審核</h3><div class="mut">達標條件：PV ≥ ${R.pvMin}、推薦 ABO ≥ ${R.refMin} 位</div><label>本月 PV</label><input id="rw_pv" type="number" inputmode="decimal" value="${d.pv!=null?d.pv:''}"><label>本月推薦 ABO 人數</label><select id="rw_n">${Array.from({length:21},(_,i)=>`<option value="${i}" ${i===(d.n||0)?'selected':''}>${i} 人</option>`).join('')}</select><div id="rw_ids"></div><div class="btns"><button class="pri" id="rw_ok">儲存</button><button data-a="close">取消</button></div>`);
+ const dr=()=>{const n=+$('#rw_n').value||0;$('#rw_ids').innerHTML=Array.from({length:n},(_,i)=>`<label>第 ${i+1} 位 ABO 會員編號</label><input class="rw_id" data-i="${i}" value="${esc(vals[i]||'')}">`).join('')};
+ $('#rw_ids').oninput=e=>{const i=e.target.dataset?e.target.dataset.i:null;if(i!=null)vals[+i]=e.target.value};$('#rw_n').onchange=dr;dr();
+ $('#rw_ok').onclick=()=>{const pv=parseFloat($('#rw_pv').value),n=+$('#rw_n').value||0;if(!(pv>=0))return toast('請填寫本月 PV');const ids=Array.from({length:n},(_,i)=>(vals[i]||'').trim());if(ids.some(x=>!x))return toast('請填寫每一位推薦 ABO 的會員編號');if(new Set(ids).size!==ids.length)return toast('會員編號有重複，請檢查');
+  db.collection('rewards').doc(me.uid+'_'+m).set({ownerUid:me.uid,ownerName:me.realName,month:m,pv,n,ids,at:Date.now()}).then(()=>{closeModal();toast('已儲存')}).catch(x=>toast('失敗：'+x.message))}}
+function rwSave(){const g=id=>($('#'+id).value||'').trim(),st=g('rs_s'),en=g('rs_e');if(!st||!en||st>en)return toast('請選擇正確的開始與結束月份');if(monthsOf(st,en).length>36)return toast('獎勵期限最長 36 個月');
+ const need=+g('rs_need');if(!(need>=1))return toast('請填寫需要幾個月達標');if(need>monthsOf(st,en).length)return toast('需要達標的月數不能超過期限的月數');
+ const R={start:st,end:en,pvMin:+g('rs_pv')||2000,refMin:+g('rs_ref')||2,needMonths:need,title:g('rs_t'),content:$('#rs_c').value.trim(),cheer:g('rs_ch')};
+ db.collection('config').doc('settings').set({reward:R},{merge:true}).then(()=>toast('已儲存獎勵設定')).catch(x=>toast('失敗：'+x.message))}
 
 /* ---------- 跟進計算 ---------- */
 const curMonth=()=>ymd(new Date()).slice(0,7);
@@ -942,6 +999,8 @@ document.addEventListener('click',async e=>{
  if(a==='ctog'){const c=custs.find(x=>x.id===id),op=!!cOpen.get(id);cOpen.set(id,!op);return drawList()}
  if(a==='mren')return renewForm(id);
  if(a==='bcast')return bcast();
+ if(a==='rwfill')return rwForm(t.dataset.m);
+ if(a==='rwsave')return rwSave();
  if(a==='anew')return apForm(id||'','');
  if(a==='aedit')return apForm(id,t.dataset.i);
  if(a==='adel'){if(!confirm('取消這筆預約？'))return;const c=custs.find(x=>x.id===id);return db.collection('customers').doc(id).update({appts:(c.appts||[]).filter(x=>x.id!==t.dataset.i)}).then(()=>toast('已取消預約'))}
@@ -989,7 +1048,7 @@ document.addEventListener('click',async e=>{
  if(a==='ren'){const n=NM.get(id),v=await ask('新名稱',n.name);if(v){n.name=v;saveCat();catView()}return}
  if(a==='del'){if(confirm('刪除後其下所有項目也會一併刪除，確定？')){rmNode(id);saveCat();catView()}return}
  if(a==='bulk'){const c=bulk($('#bulk').value);saveCat();toast(`已新增 ${c} 個項目`);return catView()}
- if(a==='sset'){cfg={ahead:+$('#s_ahead').value||3,renewDays:cfg.renewDays,renewAhead:cfg.renewAhead,tpl:$('#s_tpl').value,tplRenew:$('#s_tr').value,tplInvite:$('#s_ti').value,tplOppFu:$('#s_to').value,tplReinvite:$('#s_tri').value,tplNoReply:$('#s_tnr').value,tplInstall:$('#s_tin').value,goal:+$('#s_goal').value||20};fields.filter(f=>f.tplOn).forEach(f=>{const e=$('#s_f_'+f.id);if(e)f.tpl=e.value});Promise.all([db.collection('config').doc('settings').set(cfg),db.collection('config').doc('fields').set({list:fields,bday:1})]).then(()=>toast('已儲存')).catch(x=>toast('失敗：'+x.message))}
+ if(a==='sset'){cfg={ahead:+$('#s_ahead').value||3,renewDays:cfg.renewDays,renewAhead:cfg.renewAhead,tpl:$('#s_tpl').value,tplRenew:$('#s_tr').value,tplInvite:$('#s_ti').value,tplOppFu:$('#s_to').value,tplReinvite:$('#s_tri').value,tplNoReply:$('#s_tnr').value,tplInstall:$('#s_tin').value,goal:+$('#s_goal').value||20,...(cfg.reward?{reward:cfg.reward}:{})};fields.filter(f=>f.tplOn).forEach(f=>{const e=$('#s_f_'+f.id);if(e)f.tpl=e.value});Promise.all([db.collection('config').doc('settings').set(cfg),db.collection('config').doc('fields').set({list:fields,bday:1})]).then(()=>toast('已儲存')).catch(x=>toast('失敗：'+x.message))}
  if(a==='inew')return instForm('','');
  if(a==='iedit')return instForm(id,t.dataset.i);
  if(a==='ipay')return instPay(id,t.dataset.i);
